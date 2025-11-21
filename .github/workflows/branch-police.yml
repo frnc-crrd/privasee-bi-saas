@@ -1,0 +1,40 @@
+name: Enforce Branching Strategy
+
+# Trigger execution on Pull Requests targeting protected environments
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+    branches:
+      - main
+      - staging
+
+jobs:
+  validate-branch-flow:
+    name: Validate Branch Flow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Upstream Compliance
+        shell: bash
+        run: |
+          # Capture context variables
+          TARGET_BRANCH="${{ github.base_ref }}"
+          SOURCE_BRANCH="${{ github.head_ref }}"
+
+          echo "Audit: Verifying merge request from '${SOURCE_BRANCH}' to '${TARGET_BRANCH}'..."
+
+          # POLICY 1: Production Integrity
+          # Only 'staging' is authorized to merge into 'main'.
+          if [[ "$TARGET_BRANCH" == "main" && "$SOURCE_BRANCH" != "staging" ]]; then
+            echo "::error title=Invalid Branch Flow::Production violation: 'main' branch only accepts merges from 'staging'. Detected source: '${SOURCE_BRANCH}'."
+            exit 1
+          fi
+
+          # POLICY 2: Staging Integrity
+          # Only 'develop' is authorized to merge into 'staging'.
+          # (Note: Hotfix branches should be merged to develop first, or policy adjusted if hotfixes are critical)
+          if [[ "$TARGET_BRANCH" == "staging" && "$SOURCE_BRANCH" != "develop" ]]; then
+            echo "::error title=Invalid Branch Flow::Staging violation: 'staging' branch only accepts merges from 'develop'. Detected source: '${SOURCE_BRANCH}'."
+            exit 1
+          fi
+
+          echo "Success: Branch flow strictly adheres to the governance policy."
