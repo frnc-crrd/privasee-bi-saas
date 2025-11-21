@@ -1,1 +1,1 @@
-# privasee-bi-saas
+# PrivaSee BI App
