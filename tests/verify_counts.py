@@ -8,12 +8,13 @@ Usage:
     python tests/verify_counts.py
 """
 
-import duckdb
 import sys
-from typing import Tuple
+
+import duckdb
 
 # Configuration Constants
-DB_PATH = 'data/analytical_cube.duckdb'
+DB_PATH = "data/analytical_cube.duckdb"
+
 
 def get_db_connection(db_path: str) -> duckdb.DuckDBPyConnection:
     """Establishes a connection to the DuckDB database."""
@@ -23,12 +24,13 @@ def get_db_connection(db_path: str) -> duckdb.DuckDBPyConnection:
         print(f"[CRITICAL] Failed to connect to database at {db_path}: {e}")
         sys.exit(1)
 
+
 def verify_counts() -> None:
     """
     Executes count queries on key dimensions and prints the results.
     """
     conn = get_db_connection(DB_PATH)
-    
+
     print(f">> [INFO] verifying data quality in: {DB_PATH}")
     print("-" * 50)
 
@@ -55,6 +57,7 @@ def verify_counts() -> None:
         print(f"\n[ERROR] Unexpected error during verification: {e}")
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     verify_counts()

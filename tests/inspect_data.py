@@ -9,9 +9,9 @@ Usage:
 """
 
 import duckdb
-import sys
 
-DB_PATH = 'data/analytical_cube.duckdb'
+DB_PATH = "data/analytical_cube.duckdb"
+
 
 def inspect_schema() -> None:
     """
@@ -20,7 +20,6 @@ def inspect_schema() -> None:
     try:
         # Context manager ensures the connection is closed automatically
         with duckdb.connect(DB_PATH) as conn:
-            
             print("\n=== 1. EXISTING TABLES (SCHEMA) ===")
             conn.sql("SHOW ALL TABLES").show()
 
@@ -30,9 +29,10 @@ def inspect_schema() -> None:
                 conn.sql("SELECT * FROM sales_mart.sucursal LIMIT 3").show()
             except duckdb.CatalogException:
                 print("[WARN] Table 'sales_mart.sucursal' does not exist yet.")
-                
+
     except Exception as e:
         print(f"[CRITICAL] Error inspecting database: {e}")
+
 
 if __name__ == "__main__":
     inspect_schema()

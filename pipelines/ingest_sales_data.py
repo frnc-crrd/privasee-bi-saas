@@ -15,6 +15,7 @@ Author: Data Engineering Team
 """
 
 import os
+
 import dlt
 from dlt.sources.sql_database import sql_database
 from dotenv import load_dotenv
@@ -22,23 +23,24 @@ from dotenv import load_dotenv
 # Load environment variables explicitly to ensure credentials are available
 load_dotenv()
 
+
 def load_sales_data() -> None:
     """
     Executes the ELT pipeline.
 
     This function initializes the dlt pipeline, configures the SQL source
     connector with specific table patterns, and executes the load job.
-    
+
     The 'write_disposition="replace"' setting ensures idempotency by
     recreating the target tables on every run.
     """
-    
+
     # 1. Retrieve Credentials Explicitly
     # ----------------------------------
     # We retrieve the connection string directly from the environment.
     # This avoids ambiguity with dlt's implicit configuration naming conventions.
     conn_string = os.getenv("SOURCES__SQL_SERVER__CREDENTIALS")
-    
+
     if not conn_string:
         raise ValueError("CRITICAL: Variable 'SOURCES__SQL_SERVER__CREDENTIALS' not found in .env")
 
@@ -52,7 +54,7 @@ def load_sales_data() -> None:
         pipeline_name="pits_central_loader",
         destination="duckdb",
         dataset_name="sales_mart",
-        progress="tqdm"
+        progress="tqdm",
     )
 
     # 3. Source Configuration
@@ -63,14 +65,14 @@ def load_sales_data() -> None:
         credentials=conn_string,
         schema="dbo",
         table_names=[
-            #"Ordenes",
+            # "Ordenes",
             "Sucursal",
             "Productos",
             "Linea",
             "Sub_Linea",
             # "Detalle_Ordenes",  # Reserved for future heavy load implementation
         ],
-        backend="pandas"
+        backend="pandas",
     )
 
     # 4. Execution
@@ -85,6 +87,7 @@ def load_sales_data() -> None:
     # ------------
     print(load_info)
     print(">> [SUCCESS] Pipeline execution completed.")
+
 
 if __name__ == "__main__":
     load_sales_data()
