@@ -10,20 +10,21 @@ Usage:
 
 import logging
 import os
-import time
 import sys
+import time
 from typing import Optional
 
-from sqlalchemy import create_engine, text, exc
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, exc, text
 
 # Configure Enterprise Logging format
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - [%(levelname)s] - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
 
 def mask_connection_string(conn_str: Optional[str]) -> str:
     """
@@ -38,6 +39,7 @@ def mask_connection_string(conn_str: Optional[str]) -> str:
         return f"{prefix}://***:***@{rest.split('@')[-1]}"
     except Exception:
         return "Invalid Connection String Format"
+
 
 def run_diagnostic() -> None:
     """
@@ -55,12 +57,12 @@ def run_diagnostic() -> None:
     logger.info(f"Target Connection: {mask_connection_string(conn_str)}")
 
     engine = None
-    
+
     try:
         # 2. Initialize SQLAlchemy Engine
         logger.info("Initializing SQLAlchemy engine...")
         # We set a short timeout to fail fast if the firewall is blocking
-        engine = create_engine(conn_str, connect_args={'timeout': 10})
+        engine = create_engine(conn_str, connect_args={"timeout": 10})
 
         # 3. Attempt Connection
         logger.info("Attempting TCP handshake and authentication...")
@@ -74,7 +76,7 @@ def run_diagnostic() -> None:
             logger.info("Executing keep-alive query (SELECT 1)...")
             result = connection.execute(text("SELECT 1"))
             server_response = result.scalar()
-            
+
             logger.info(f"Server responded: {server_response}")
             logger.info("Diagnostic completed successfully.")
 
@@ -83,7 +85,10 @@ def run_diagnostic() -> None:
         logger.error("Root Cause Analysis suggestions:")
         logger.error("1. Firewall: Ensure outbound port 1433 is open and IP is whitelisted.")
         logger.error("2. Driver: Ensure 'msodbcsql18' is correctly installed via odbcinst.")
-        logger.error("3. SSL: If using self-signed certs, ensure TrustServerCertificate=yes is in the string.")
+        logger.error(
+            "3. SSL: If using self-signed certs, ensure TrustServerCertificate=yes "
+            "is in the string."
+        )
         logger.debug(f"Technical Details: {e}")
         sys.exit(1)
 
@@ -100,6 +105,7 @@ def run_diagnostic() -> None:
     finally:
         if engine:
             engine.dispose()
+
 
 if __name__ == "__main__":
     run_diagnostic()
