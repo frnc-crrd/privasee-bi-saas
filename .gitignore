@@ -84,7 +84,7 @@ imports/
 # DOCKER & INFRASTRUCTURE
 # ==============================================================================
 # Docker persistent volumes (mapped locally for persistence)
-postgres_data/
+auth_data/
 sqlserver_data/
 redis_data/
 grafana_data/

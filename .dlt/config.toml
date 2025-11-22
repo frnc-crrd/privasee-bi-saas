@@ -1,0 +1,8 @@
+# .dlt/config.toml
+[runtime]
+log_level = "WARNING"
+
+# Privacy: Disable telemetry for Enterprise SaaS security
+dlthub_telemetry = false
+
+# [sources.sql_database] section removed because we define tables explicitly in python code
