@@ -1,0 +1,17 @@
+{
+  "include": ["app", "tests", "pipelines"],
+  "exclude": ["**/__pycache__", "**/node_modules", ".venv"],
+  "pythonVersion": "3.14",
+  "pythonPlatform": "Linux",
+  "typeCheckingMode": "basic",
+  "reportUnknownMemberType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownParameterType": "none",
+  "reportMissingParameterType": "none",
+  "reportUnusedFunction": "none",
+  "reportMissingTypeStubs": "none",
+  "reportIncompatibleMethodOverride": "none",
+  "strictParameterNoneValue": true,
+  "reportPrivateUsage": "warning",
+  "reportConstantRedefinition": "error"
+}

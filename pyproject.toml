@@ -1,0 +1,44 @@
+# pyproject.toml
+
+# ============================================================
+# RUFF CONFIGURATION (Linter & Formatter)
+# ============================================================
+[tool.ruff]
+# Target Python version for syntax checks and compatibility.
+target-version = "py311"
+# Maximum line length: 100 characters is the modern, readable standard.
+line-length = 100
+
+[tool.ruff.lint]
+# Activated rules (Enterprise Standard):
+# E, W: Standard Errors and Warnings (pycodestyle style)
+# F: Pyflakes (detects logical errors, unused variables, etc.)
+# I: Isort (automatically sorts imports alphabetically and by section)
+# B: Flake8-bugbear (finds potential bugs and bad design patterns)
+select = ["E", "W", "F", "I", "B"]
+
+# Rules to ignore (Keep this minimal, only for known conflicts)
+ignore = []
+
+[tool.ruff.format]
+# Using double quotes for strings is the recommended standard (Black/Ruff style).
+quote-style = "double"
+
+# ============================================================
+# PYTEST CONFIGURATION (Testing Engine)
+# ============================================================
+[tool.pytest.ini_options]
+# Directories where tests will be discovered.
+testpaths = ["tests"]
+
+# File patterns to recognize as test files.
+python_files = "test_*.py"
+
+# CRITICAL: Adds the root directory to the Python Path.
+# This allows tests to correctly import 'app' and 'pipelines'.
+pythonpath = "."
+
+# Default command line options for 'pytest':
+# -v: verbose output
+# -ra: show extra summary report on test failures/skips
+addopts = "-v -ra"
