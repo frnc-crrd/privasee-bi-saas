@@ -1,0 +1,71 @@
+services:
+  # ============================================================================
+  # IDENTITY AND ACCESS MANAGEMENT (IAM) DATABASE
+  # Service: PostgreSQL 16 (Alpine)
+  # Purpose: Stores user credentials, RBAC roles, sessions, and application metadata.
+  # Policy:  Strictly transactional (OLTP). No analytical workloads permitted.
+  # ============================================================================
+  auth_db:
+    image: postgres:16-alpine
+    container_name: privasee-auth-db
+    hostname: auth_db
+    restart: unless-stopped
+    
+    # Security & Configuration
+    # Usage: Values are sourced from .env; defaults provided for development only.
+    environment:
+      - POSTGRES_USER=${AUTH_DB_USER:-auth_admin}
+      - POSTGRES_PASSWORD=${AUTH_DB_PASSWORD:-SecretAuthPassword!}
+      - POSTGRES_DB=${AUTH_DB_NAME:-privasee_users}
+    
+    # Port Mapping (Host:Container)
+    ports:
+      - "5432:5432"
+    
+    # Data Persistence
+    # Maps container data to a local directory to ensure data survival across restarts.
+    volumes:
+      - ./auth_data:/var/lib/postgresql/data:Z
+    
+    # Network Isolation
+    networks:
+      - app-network
+    
+    # Orchestration Healthcheck
+    # Ensures the service is ready to accept connections before dependent services start.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER:-auth_admin} -d ${AUTH_DB_NAME:-privasee_users}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # DATABASE ADMINISTRATION INTERFACE (DEV TOOL)
+  # Service: Adminer
+  # Purpose: Lightweight UI for database inspection and debugging.
+  # Warning: Ensure this service is disabled or protected behind a VPN in production.
+  # ============================================================================
+  adminer:
+    image: adminer
+    container_name: privasee-adminer
+    restart: unless-stopped
+    
+    ports:
+      - "8080:8080"
+    
+    networks:
+      - app-network
+    
+    # Dependency Management
+    # Ensures Adminer only starts after the IAM database is operational.
+    depends_on:
+      auth_db:
+        condition: service_healthy
+
+# ==============================================================================
+# NETWORK CONFIGURATION
+# ==============================================================================
+networks:
+  app-network:
+    driver: bridge
+    name: privasee_bridge_net
