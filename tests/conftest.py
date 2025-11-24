@@ -1,7 +1,6 @@
 import logging
 
 import pytest
-from flask import g
 
 # Assuming 'app' imports create_app and 'app.extensions' imports the db instance
 from app import create_app
@@ -60,7 +59,7 @@ def client(app):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def session_cleanup(db):
+def session_cleanup(app, db):
     """
     Automatically runs before and after every test function to ensure a clean session.
     This is necessary to clear any data that might have been committed in a test.
@@ -69,6 +68,10 @@ def session_cleanup(db):
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.setLevel(logging.WARNING)  # Reset to default
+
+    # Clear Flask g context before each test
+    # This must be done within each test's request context, not here
+    # The test itself will create its own context
 
     # The yield pauses the fixture until the test finishes
     yield
