@@ -1,11 +1,10 @@
 # app/__init__.py
-import os
 from typing import Any, Optional
 
-from dotenv import load_dotenv
 from flask import Flask
 
-# Import extensions and models to ensure they are registered
+# Import core configuration and extensions
+from app.core.config import Settings, get_settings
 from app.extensions import bcrypt, db, login_manager
 from app.models import User
 
@@ -17,6 +16,10 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     Constructs and configures the Flask application instance.
     Supports configuration overrides for testing environments.
 
+    Uses Pydantic Settings for type-safe, validated configuration management.
+    All configuration values are loaded from environment variables with
+    comprehensive validation and defaults.
+
     Args:
         config_overrides: Dictionary of configuration settings
             to override default environment configuration. Primarily used for
@@ -26,39 +29,45 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
         Fully initialized and configured application instance.
 
     Raises:
-        RuntimeError: If critical configuration values (SECRET_KEY, AUTH_DB_URI)
-            are missing from environment variables.
+        ValidationError: If configuration validation fails (Pydantic)
+        RuntimeError: If critical configuration values are invalid
     """
-    # Load environment variables from .env file (ignored if already loaded)
-    load_dotenv()
-
     # Initialize Flask application instance
     app = Flask(__name__)
 
     # =========================================================================
-    # Configuration Layer
+    # Configuration Layer (Pydantic Settings)
     # =========================================================================
-    # Security: Session signing key (required for Flask-Login and CSRF)
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+    # Load validated settings from environment variables
+    # This will raise ValidationError if any required field is missing
+    # or if validation rules are violated
+    settings: Settings = get_settings()
+
+    # Apply settings to Flask configuration
+    # Security: Session signing key (validated by Pydantic)
+    app.config["SECRET_KEY"] = settings.SECRET_KEY
 
     # Database: PostgreSQL connection string for authentication database
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("AUTH_DB_URI")
+    app.config["SQLALCHEMY_DATABASE_URI"] = settings.get_sqlalchemy_database_uri()
 
-    # Performance: Disable modification tracking to reduce memory overhead
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    # SQLAlchemy: Performance and connection pool settings
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = settings.SQLALCHEMY_TRACK_MODIFICATIONS
+    app.config["SQLALCHEMY_ECHO"] = settings.SQLALCHEMY_ECHO
+    app.config["SQLALCHEMY_POOL_SIZE"] = settings.SQLALCHEMY_POOL_SIZE
+    app.config["SQLALCHEMY_MAX_OVERFLOW"] = settings.SQLALCHEMY_MAX_OVERFLOW
+    app.config["SQLALCHEMY_POOL_TIMEOUT"] = settings.SQLALCHEMY_POOL_TIMEOUT
+
+    # Application: Environment flags
+    app.config["DEBUG"] = settings.DEBUG
+    app.config["TESTING"] = settings.TESTING
+    app.config["ENVIRONMENT"] = settings.ENVIRONMENT
 
     # Apply configuration overrides (used primarily in testing environments)
     if config_overrides:
         app.config.update(config_overrides)  # type: ignore[arg-type]
-
-    # Validation: Ensure critical configuration values are present
-    # Only validate if not in testing mode (testing provides its own config)
-    if not app.config.get("TESTING", False):  # type: ignore[arg-type]
-        if not app.config["SECRET_KEY"] or not app.config["SQLALCHEMY_DATABASE_URI"]:
-            raise RuntimeError(
-                "Critical configuration missing: SECRET_KEY or AUTH_DB_URI "
-                "not found in environment variables"
-            )
+        # If TESTING flag is set in overrides, mark as testing environment
+        if config_overrides.get("TESTING"):
+            settings.TESTING = True
 
     # =========================================================================
     # Extension Initialization
@@ -100,8 +109,11 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
         db.create_all()
 
         # Log successful initialization (suppress in testing to reduce noise)
-        if not app.config.get("TESTING", False):  # type: ignore[arg-type]
-            print(">> System: Database tables verified/created successfully.")
+        if not settings.is_testing():
+            print(
+                f">> System: Database tables verified/created successfully. "
+                f"Environment: {settings.ENVIRONMENT}"
+            )
 
     # =========================================================================
     # Blueprint Registration
