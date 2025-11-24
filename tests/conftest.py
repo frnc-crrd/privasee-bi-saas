@@ -1,4 +1,7 @@
+import logging
+
 import pytest
+from flask import g
 
 # Assuming 'app' imports create_app and 'app.extensions' imports the db instance
 from app import create_app
@@ -62,9 +65,17 @@ def session_cleanup(db):
     Automatically runs before and after every test function to ensure a clean session.
     This is necessary to clear any data that might have been committed in a test.
     """
+    # Reset logging handlers to avoid accumulation
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.setLevel(logging.WARNING)  # Reset to default
+
     # The yield pauses the fixture until the test finishes
     yield
 
     # Teardown: Remove the session and clean up
     db.session.remove()
-    # Note: Since the DB is in-memory and created/dropped per session, this is usually fast enough.
+
+    # Clean logging handlers again
+    root_logger.handlers.clear()
+    root_logger.setLevel(logging.WARNING)
