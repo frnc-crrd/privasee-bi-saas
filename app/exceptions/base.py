@@ -275,3 +275,7 @@ class BadRequestException(BaseAPIException):
             error_code="BAD_REQUEST",
             details=details,
         )
+
+
+# Aliases for backward compatibility
+ResourceNotFoundError = ResourceNotFoundException

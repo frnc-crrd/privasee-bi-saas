@@ -5,7 +5,7 @@ from flask import Flask
 
 # Import core configuration and extensions
 from app.core.config import Settings, get_settings
-from app.extensions import bcrypt, db, login_manager
+from app.extensions import bcrypt, db, login_manager, jwt, cache
 from app.models import User
 
 
@@ -82,6 +82,27 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     login_manager.init_app(app)  # type: ignore[arg-type]
 
     # =========================================================================
+    # JWT and Caching Configuration
+    # =========================================================================
+    # Configure JWT settings
+    app.config["JWT_SECRET_KEY"] = settings.SECRET_KEY
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = 3600  # 1 hour
+    app.config["JWT_REFRESH_TOKEN_EXPIRES"] = 604800  # 7 days
+    app.config["JWT_TOKEN_LOCATION"] = ["headers"]
+    app.config["JWT_HEADER_NAME"] = "Authorization"
+    app.config["JWT_HEADER_TYPE"] = "Bearer"
+
+    # Initialize JWT manager
+    jwt.init_app(app)  # type: ignore[arg-type]
+
+    # Configure caching (simple in-memory for development)
+    app.config["CACHE_TYPE"] = "simple"  # Change to "redis" in production
+    app.config["CACHE_DEFAULT_TIMEOUT"] = 300
+
+    # Initialize cache
+    cache.init_app(app)  # type: ignore[arg-type]
+
+    # =========================================================================
     # Flask-Login User Loader Callback
     # =========================================================================
     # This callback reloads the User object from the user ID stored in session
@@ -116,14 +137,47 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
             )
 
     # =========================================================================
+    # Exception Handlers Registration
+    # =========================================================================
+    # Register global exception handlers for API error responses
+    from app.exceptions.handlers import register_error_handlers
+    register_error_handlers(app)
+
+    # =========================================================================
+    # Security Middleware Registration
+    # =========================================================================
+    # Apply security headers to all responses
+    from app.middleware.security_middleware import (
+        apply_security_headers,
+        track_request_context,
+        log_request_info,
+        log_response_info
+    )
+
+    @app.before_request
+    def before_request_handler():
+        """Track request context and log incoming requests."""
+        track_request_context()
+        if not settings.is_testing():
+            log_request_info()
+
+    @app.after_request
+    def after_request_handler(response):
+        """Apply security headers and log response info."""
+        response = apply_security_headers(response)
+        if not settings.is_testing():
+            response = log_response_info(response)
+        return response
+
+    # =========================================================================
     # Blueprint Registration
     # =========================================================================
     # Register application blueprints for modular route organization
-    # TODO: Uncomment when blueprints are implemented
-    # from app.routes.auth_routes import auth_bp
-    # app.register_blueprint(auth_bp, url_prefix='/auth')
+    from app.routes import register_blueprints
+    register_blueprints(app)
 
-    # from app.routes.api_routes import api_bp
-    # app.register_blueprint(api_bp, url_prefix='/api')
+    # Log successful application creation
+    if not settings.is_testing():
+        app.logger.info(f"Application created successfully. Environment: {settings.ENVIRONMENT}")
 
     return app

@@ -133,12 +133,17 @@ class RegisterRequest(BaseSchema):
         max_length=128,
         examples=["StrongP@ss123"],
     )
-    password_confirm: str = Field(
-        ...,
-        description="Password confirmation (must match password)",
+    password_confirm: Optional[str] = Field(
+        None,
+        description="Password confirmation (must match password if provided)",
         min_length=8,
         max_length=128,
         examples=["StrongP@ss123"],
+    )
+    role: str = Field(
+        "viewer",
+        description="User role (admin, analyst, viewer)",
+        examples=["viewer"],
     )
 
     @field_validator("email")
@@ -161,8 +166,10 @@ class RegisterRequest(BaseSchema):
 
     @field_validator("password_confirm")
     @classmethod
-    def validate_passwords_match(cls, v: str, info) -> str:
-        """Validate that password and password_confirm match."""
+    def validate_passwords_match(cls, v: Optional[str], info) -> Optional[str]:
+        """Validate that password and password_confirm match if provided."""
+        if v is None:
+            return v
         password = info.data.get("password")
         if password and v != password:
             raise ValueError("Passwords do not match")
