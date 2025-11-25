@@ -5,7 +5,7 @@ from flask import Flask
 
 # Import core configuration and extensions
 from app.core.config import Settings, get_settings
-from app.extensions import bcrypt, db, login_manager, jwt, cache
+from app.extensions import bcrypt, db, login_manager, jwt, cache, limiter
 from app.models import User
 
 
@@ -101,6 +101,41 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
 
     # Initialize cache
     cache.init_app(app)  # type: ignore[arg-type]
+
+    # =========================================================================
+    # Rate Limiting Configuration
+    # =========================================================================
+    # Configure rate limiting storage (Redis in production, memory in dev/test)
+    rate_limit_storage = "memory://"
+    if hasattr(settings, 'REDIS_URL') and settings.REDIS_URL and not settings.is_testing():
+        rate_limit_storage = settings.REDIS_URL.replace('/0', '/2')  # Use Redis DB 2 for rate limiting
+
+    app.config["RATELIMIT_STORAGE_URL"] = rate_limit_storage
+    limiter.init_app(app)  # type: ignore[arg-type]
+
+    if not settings.is_testing():
+        app.logger.info(f"Rate limiting initialized with storage: {rate_limit_storage}")
+
+    # =========================================================================
+    # CORS Configuration
+    # =========================================================================
+    # Initialize CORS for cross-origin requests from frontend
+    from flask_cors import CORS
+
+    cors_origins = settings.CORS_ORIGINS.split(',')
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": cors_origins,
+            "methods": settings.CORS_METHODS.split(','),
+            "allow_headers": settings.CORS_ALLOW_HEADERS.split(','),
+            "expose_headers": ["X-Request-ID", "X-Total-Count"],
+            "supports_credentials": True,
+            "max_age": 3600
+        }
+    })
+
+    if not settings.is_testing():
+        app.logger.info(f"CORS initialized with origins: {cors_origins}")
 
     # =========================================================================
     # Flask-Login User Loader Callback

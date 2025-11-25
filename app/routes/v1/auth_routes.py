@@ -28,6 +28,7 @@ from app.exceptions.auth import (
     AuthenticationError,
 )
 from app.exceptions.validation import ValidationError
+from app.extensions import limiter
 
 
 # Create blueprint
@@ -38,6 +39,7 @@ auth_service = AuthService()
 
 
 @auth_bp.route('/register', methods=['POST'])
+@limiter.limit("10/hour")  # Limit registration attempts
 def register():
     """
     Register a new user.
@@ -106,6 +108,7 @@ def register():
 
 
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit("5/minute")  # Strict rate limiting for brute force protection
 def login():
     """
     Authenticate user and return tokens.
