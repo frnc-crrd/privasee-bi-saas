@@ -335,3 +335,43 @@ class ResourceAccessDeniedError(AuthorizationError):
             error_code="RESOURCE_ACCESS_DENIED",
             details=exception_details,
         )
+
+
+class UserAlreadyExistsError(BaseAPIException):
+    """Exception raised when attempting to create a user that already exists.
+
+    Used for duplicate email or username during registration.
+
+    Attributes:
+        message: Human-readable error message
+        status_code: HTTP status code (default: 409 Conflict)
+        error_code: Machine-readable error code (default: "USER_ALREADY_EXISTS")
+    """
+
+    def __init__(
+        self,
+        message: str = "User already exists",
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize user already exists error.
+
+        Args:
+            message: Human-readable error message
+            details: Optional context about the conflict
+
+        Example:
+            >>> raise UserAlreadyExistsError(
+            ...     message="Email address is already registered",
+            ...     details={"field": "email"}
+            ... )
+        """
+        super().__init__(
+            message=message,
+            status_code=HTTPStatus.CONFLICT,
+            error_code="USER_ALREADY_EXISTS",
+            details=details,
+        )
+
+
+# Aliases for backward compatibility
+ExpiredTokenError = TokenExpiredError
