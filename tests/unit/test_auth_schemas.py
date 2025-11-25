@@ -267,35 +267,32 @@ class TestChangePasswordRequest:
     def test_valid_change_password(self):
         """Test valid change password request."""
         data = {
-            "current_password": "OldP@ssw0rd",
-            "new_password": "NewP@ssw0rd",
-            "new_password_confirm": "NewP@ssw0rd",
+            "old_password": "OldP@ssw0rd",
+            "new_password": "NewP@ssw0rd123!",
         }
         change = ChangePasswordRequest(**data)
-        assert change.current_password == "OldP@ssw0rd"
-        assert change.new_password == "NewP@ssw0rd"
+        assert change.old_password == "OldP@ssw0rd"
+        assert change.new_password == "NewP@ssw0rd123!"
 
     def test_change_password_new_same_as_current(self):
         """Test that new password same as current fails."""
         data = {
-            "current_password": "SameP@ssw0rd",
+            "old_password": "SameP@ssw0rd",
             "new_password": "SameP@ssw0rd",
-            "new_password_confirm": "SameP@ssw0rd",
         }
         with pytest.raises(ValidationError) as exc_info:
             ChangePasswordRequest(**data)
         assert "different" in str(exc_info.value).lower()
 
-    def test_change_password_new_passwords_dont_match(self):
-        """Test that mismatched new passwords fail."""
+    def test_change_password_weak_new_password(self):
+        """Test that weak new password fails."""
         data = {
-            "current_password": "OldP@ssw0rd",
-            "new_password": "NewP@ssw0rd",
-            "new_password_confirm": "DifferentP@ssw0rd",
+            "old_password": "OldP@ssw0rd",
+            "new_password": "weak",
         }
         with pytest.raises(ValidationError) as exc_info:
             ChangePasswordRequest(**data)
-        assert "do not match" in str(exc_info.value).lower()
+        assert "password" in str(exc_info.value).lower()
 
 
 class TestEmailVerificationRequest:
