@@ -12,6 +12,8 @@ Endpoints:
 
 from flask import Blueprint, request, current_app
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy import select
+
 from app.services.user_service import UserService
 from app.schemas.user_schemas import UserUpdateRequest, UserResponse
 from app.middleware.auth_middleware import (
@@ -25,9 +27,15 @@ from app.middleware.rbac_middleware import (
     require_admin
 )
 from app.core.responses import success_response, error_response
+from app.core.pagination import PaginationParams, paginate_query
+from app.core.filtering import FilterParams, apply_filters, apply_search
+from app.core.sorting import SortParams, apply_sorting, SortField, SortOrder
+from app.core.field_selector import FieldSelector, select_fields
 from app.exceptions.auth import InsufficientPermissionsError, AuthorizationError
 from app.exceptions.validation import ValidationError
 from app.exceptions.base import ResourceNotFoundError
+from app.models import User
+from app.extensions import db
 
 
 # Create blueprint
@@ -42,54 +50,101 @@ user_service = UserService()
 @require_analyst_or_admin()
 def list_users():
     """
-    List all users with pagination and filtering.
+    List all users with pagination, filtering, sorting, and field selection.
 
     Query Parameters:
-        - skip: Number of records to skip (default: 0)
-        - limit: Maximum records to return (default: 100, max: 1000)
-        - role: Filter by role (admin, analyst, viewer)
-        - is_active: Filter by active status (true/false)
-        - search: Search in username/email
+        Pagination:
+            - page: Page number (default: 1)
+            - per_page: Items per page (default: 20, max: 100)
+
+        Filtering:
+            - role: Filter by role (admin, analyst, viewer)
+            - is_active: Filter by active status (true/false)
+            - created_at__gte: Filter by creation date (greater than or equal)
+            - created_at__lte: Filter by creation date (less than or equal)
+
+        Search:
+            - search: Search in username and email fields
+
+        Sorting:
+            - sort: Sort fields (e.g., "created_at", "-username")
+                   Prefix with - for descending order
+                   Multiple fields: "role,-created_at"
+
+        Field Selection:
+            - fields: Specific fields to include (e.g., "id,username,email")
+            - exclude: Fields to exclude (e.g., "password_hash")
 
     Returns:
         200: List of users with pagination metadata
 
     Example:
-        $ curl -X GET "http://localhost:5000/api/v1/users?skip=0&limit=50&role=admin" \\
+        $ curl -X GET "http://localhost:5000/api/v1/users?page=1&per_page=20&role=admin&sort=-created_at&fields=id,username,email" \\
           -H "Authorization: Bearer <access_token>"
     """
     try:
-        # Get query parameters
-        skip = request.args.get('skip', 0, type=int)
-        limit = request.args.get('limit', 100, type=int)
-        role_filter = request.args.get('role', None)
-        is_active_filter = request.args.get('is_active', None)
-        search_query = request.args.get('search', None)
+        # Parse pagination parameters
+        pagination = PaginationParams.from_request(request, default_per_page=20, max_per_page=100)
 
-        # Validate limit
-        if limit > 1000:
-            limit = 1000
+        # Parse filter parameters
+        allowed_filter_fields = {'role', 'is_active', 'created_at'}
+        filters = FilterParams.from_request(request, allowed_fields=allowed_filter_fields)
 
-        # Parse is_active filter
-        if is_active_filter is not None:
-            is_active_filter = is_active_filter.lower() == 'true'
-
-        # Get current user role
-        current_role = get_current_user_role()
-
-        # Get users
-        result = user_service.list_users(
-            current_user_role=current_role,
-            skip=skip,
-            limit=limit,
-            role_filter=role_filter,
-            is_active_filter=is_active_filter,
-            search_query=search_query
+        # Parse sort parameters
+        allowed_sort_fields = {'id', 'username', 'email', 'role', 'created_at', 'last_login'}
+        default_sort = [SortField('created_at', SortOrder.DESC)]
+        sort_params = SortParams.from_request(
+            request,
+            allowed_fields=allowed_sort_fields,
+            default_sort=default_sort
         )
 
+        # Parse field selection
+        allowed_fields = {'id', 'username', 'email', 'role', 'is_active', 'created_at', 'last_login'}
+        always_exclude = {'password_hash'}
+        field_selector = FieldSelector.from_request(
+            request,
+            allowed_fields=allowed_fields,
+            always_exclude=always_exclude
+        )
+
+        # Build base query
+        query = select(User)
+
+        # Apply filters
+        query = apply_filters(query, User, filters)
+
+        # Apply search if provided
+        if filters.search:
+            search_fields = ['username', 'email']
+            query = apply_search(query, User, filters.search, search_fields)
+
+        # Apply sorting
+        query = apply_sorting(query, User, sort_params)
+
+        # Paginate query
+        users, meta = paginate_query(query, pagination)
+
+        # Serialize users to dict
+        users_data = []
+        for user in users:
+            user_dict = {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+                'is_active': user.is_active,
+                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+            }
+            # Apply field selection
+            filtered_user = select_fields(user_dict, field_selector)
+            users_data.append(filtered_user)
+
         return success_response(
-            data=result,
-            message="Users retrieved successfully"
+            data={'users': users_data},
+            message="Users retrieved successfully",
+            pagination=meta.to_dict()
         )
 
     except InsufficientPermissionsError as e:
