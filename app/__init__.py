@@ -170,11 +170,31 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
         return response
 
     # =========================================================================
+    # Metrics Middleware Registration
+    # =========================================================================
+    # Initialize Prometheus metrics collection
+    try:
+        from app.core.metrics import MetricsMiddleware
+        metrics_middleware = MetricsMiddleware(app)
+        if not settings.is_testing():
+            app.logger.info("Metrics collection initialized at /metrics")
+    except ImportError:
+        # Metrics are optional, log warning but don't fail
+        if not settings.is_testing():
+            app.logger.warning("Prometheus metrics not available (prometheus-client not installed)")
+
+    # =========================================================================
     # Blueprint Registration
     # =========================================================================
     # Register application blueprints for modular route organization
     from app.routes import register_blueprints
     register_blueprints(app)
+
+    # Register health check routes
+    from app.routes.health_routes import health_bp
+    app.register_blueprint(health_bp)
+    if not settings.is_testing():
+        app.logger.info("Health check endpoints registered at /health/*")
 
     # =========================================================================
     # Dashboard Integration
