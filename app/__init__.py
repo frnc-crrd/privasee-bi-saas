@@ -176,6 +176,21 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     from app.routes import register_blueprints
     register_blueprints(app)
 
+    # =========================================================================
+    # Dashboard Integration
+    # =========================================================================
+    # Integrate Dash dashboards with Flask app
+    # Dashboards are mounted at /dashboard/ and share authentication
+    try:
+        from app.dashboard import create_dash_app
+        dash_app = create_dash_app(app, url_base_pathname='/dashboard/')
+        if not settings.is_testing():
+            app.logger.info("Dashboard integrated successfully at /dashboard/")
+    except Exception as e:
+        # Dashboard is optional, log error but don't fail app creation
+        if not settings.is_testing():
+            app.logger.warning(f"Dashboard integration failed: {str(e)}")
+
     # Log successful application creation
     if not settings.is_testing():
         app.logger.info(f"Application created successfully. Environment: {settings.ENVIRONMENT}")
