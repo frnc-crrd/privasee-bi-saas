@@ -105,6 +105,8 @@ def _check_database() -> Dict[str, Any]:
             'message': 'Database connection successful'
         }
     except Exception as e:
+        # Critical fix: rollback transaction to prevent connection pool exhaustion
+        db.session.rollback()
         return {
             'status': 'unhealthy',
             'message': f'Database connection failed: {str(e)}'

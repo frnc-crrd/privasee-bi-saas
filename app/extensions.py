@@ -31,3 +31,15 @@ jwt = JWTManager()
 # Initialize Flask-Caching for response and query caching
 # Supports multiple backends (simple, redis, memcached)
 cache = Cache()
+
+# Initialize Flask-Limiter for rate limiting
+# Protects against brute force and API abuse
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200/day", "50/hour"],
+    storage_uri="memory://",  # Will be overridden in app factory with Redis
+    strategy="fixed-window"
+)
