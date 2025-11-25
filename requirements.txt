@@ -60,6 +60,7 @@ platformdirs==4.5.0
 plotly==6.5.0
 pluggy==1.6.0
 ply==3.11
+prometheus-client==0.20.0
 psycopg==3.2.12
 psycopg2-binary==2.9.11
 pyarrow==22.0.0
