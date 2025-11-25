@@ -102,6 +102,11 @@ def admin_user(app, db):
     db.session.add(user)
     db.session.commit()
     db.session.refresh(user)  # Ensure user is fully loaded
+    # Store user_id before expunge
+    user_id = user.id
+    db.session.expunge(user)
+    # Re-query to get fresh instance
+    user = db.session.get(User, user_id)
     yield user
 
 
@@ -121,6 +126,11 @@ def analyst_user(app, db):
     db.session.add(user)
     db.session.commit()
     db.session.refresh(user)
+    # Store user_id before expunge
+    user_id = user.id
+    db.session.expunge(user)
+    # Re-query to get fresh instance
+    user = db.session.get(User, user_id)
     yield user
 
 
@@ -140,6 +150,11 @@ def viewer_user(app, db):
     db.session.add(user)
     db.session.commit()
     db.session.refresh(user)
+    # Store user_id before expunge
+    user_id = user.id
+    db.session.expunge(user)
+    # Re-query to get fresh instance
+    user = db.session.get(User, user_id)
     yield user
 
 
@@ -159,6 +174,11 @@ def inactive_user(app, db):
     db.session.add(user)
     db.session.commit()
     db.session.refresh(user)
+    # Store user_id before expunge
+    user_id = user.id
+    db.session.expunge(user)
+    # Re-query to get fresh instance
+    user = db.session.get(User, user_id)
     yield user
 
 

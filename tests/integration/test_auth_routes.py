@@ -271,7 +271,7 @@ class TestAuthLogout:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data["success"] is True
-        assert "logout" in data["error"]["message"].lower()
+        assert "logout" in data["message"].lower()
 
     def test_logout_without_token(self, client, db):
         """Test logout without authentication."""
@@ -287,7 +287,7 @@ class TestAuthPasswordChange:
         """Test successful password change."""
         payload = {
             "old_password": "AdminPass123!",
-            "new_password": "NewAdminPass456!"
+            "new_password": "NewSecureP@ssw0rd!"
         }
 
         response = client.post(
@@ -300,12 +300,12 @@ class TestAuthPasswordChange:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data["success"] is True
-        assert "changed" in data["error"]["message"].lower()
+        assert "changed" in data["message"].lower()
 
         # Verify new password works
         login_payload = {
             "email": admin_user.email,
-            "password": "NewAdminPass456!"
+            "password": "NewSecureP@ssw0rd!"
         }
         login_response = client.post(
             "/api/v1/auth/login",
@@ -318,7 +318,7 @@ class TestAuthPasswordChange:
         """Test password change with wrong old password."""
         payload = {
             "old_password": "WrongOldPassword123!",
-            "new_password": "NewAdminPass456!"
+            "new_password": "NewSecureP@ssw0rd!"
         }
 
         response = client.post(
