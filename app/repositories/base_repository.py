@@ -309,12 +309,12 @@ class BaseRepository(Generic[ModelType]):
                 details={"error": str(e), "filters": filters},
             ) from e
 
-    def update(self, id: int, **kwargs: Any) -> ModelType:
-        """Update a record by ID.
+    def update(self, id_or_instance, **kwargs: Any) -> ModelType:
+        """Update a record by ID or instance.
 
         Args:
-            id: Primary key value
-            **kwargs: Fields to update with new values
+            id_or_instance: Primary key value (int) or model instance
+            **kwargs: Fields to update with new values (ignored if instance passed)
 
         Returns:
             Updated model instance
@@ -324,24 +324,33 @@ class BaseRepository(Generic[ModelType]):
             DatabaseException: If update fails
 
         Example:
+            >>> # Update by ID
             >>> user = repo.update(123, email="newemail@example.com")
-            >>> print(user.email)  # newemail@example.com
+            >>> # Update by instance
+            >>> user.email = "newemail@example.com"
+            >>> user = repo.update(user)
         """
-        instance = self.get_by_id_or_404(id)
-
-        try:
+        # Handle both ID and instance
+        if isinstance(id_or_instance, int):
+            instance = self.get_by_id_or_404(id_or_instance)
+            # Apply kwargs updates
             for field, value in kwargs.items():
                 if hasattr(instance, field):
                     setattr(instance, field, value)
+        else:
+            # id_or_instance is already an instance
+            instance = id_or_instance
 
+        try:
             db.session.commit()
             db.session.refresh(instance)
             return instance
         except SQLAlchemyError as e:
             db.session.rollback()
+            instance_id = getattr(instance, 'id', 'unknown')
             raise DatabaseException(
                 message=f"Failed to update {self.model.__name__}",
-                details={"error": str(e), "id": id, "data": kwargs},
+                details={"error": str(e), "id": instance_id, "data": kwargs},
             ) from e
 
     def delete(self, id: int) -> None:

@@ -352,19 +352,17 @@ class ChangePasswordRequest(BaseSchema):
     Allows authenticated user to change their password.
 
     Attributes:
-        current_password: User's current password
+        old_password: User's current password
         new_password: New password
-        new_password_confirm: New password confirmation
 
     Example:
         >>> change = ChangePasswordRequest(
-        ...     current_password="OldP@ssw0rd",
-        ...     new_password="NewP@ssw0rd",
-        ...     new_password_confirm="NewP@ssw0rd"
+        ...     old_password="OldP@ssw0rd",
+        ...     new_password="NewP@ssw0rd123!"
         ... )
     """
 
-    current_password: str = Field(
+    old_password: str = Field(
         ...,
         description="User's current password",
         min_length=1,
@@ -375,14 +373,7 @@ class ChangePasswordRequest(BaseSchema):
         description="New password",
         min_length=8,
         max_length=128,
-        examples=["NewP@ssw0rd"],
-    )
-    new_password_confirm: str = Field(
-        ...,
-        description="New password confirmation",
-        min_length=8,
-        max_length=128,
-        examples=["NewP@ssw0rd"],
+        examples=["NewP@ssw0rd123!"],
     )
 
     @field_validator("new_password")
@@ -391,20 +382,11 @@ class ChangePasswordRequest(BaseSchema):
         """Validate password strength and ensure it's different from current."""
         validated = validate_password_strength(v)
 
-        current = info.data.get("current_password")
-        if current and validated == current:
+        old_password = info.data.get("old_password")
+        if old_password and validated == old_password:
             raise ValueError("New password must be different from current password")
 
         return validated
-
-    @field_validator("new_password_confirm")
-    @classmethod
-    def validate_passwords_match(cls, v: str, info) -> str:
-        """Validate that passwords match."""
-        new_password = info.data.get("new_password")
-        if new_password and v != new_password:
-            raise ValueError("Passwords do not match")
-        return v
 
 
 class EmailVerificationRequest(BaseSchema):
