@@ -25,6 +25,8 @@ from flask import Request
 from sqlalchemy import Select, and_, or_
 from sqlalchemy.orm import InstrumentedAttribute
 
+from app.exceptions.validation import ValidationError
+
 
 class FilterOperator(str, Enum):
     """Supported filter operators."""
@@ -129,9 +131,12 @@ class FilterParams:
                 field_name = key
                 operator = FilterOperator.EQ
 
-            # Check if field is allowed
+            # Whitelist validation: Reject unauthorized filter fields (SQL injection protection)
             if allowed_fields and field_name not in allowed_fields:
-                continue
+                raise ValidationError(
+                    f"Filtering by field '{field_name}' is not allowed. "
+                    f"Allowed fields: {', '.join(sorted(allowed_fields))}"
+                )
 
             # Parse value
             parsed_value = _parse_filter_value(value, operator)

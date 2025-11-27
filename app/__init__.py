@@ -1,4 +1,5 @@
 # app/__init__.py
+from datetime import timedelta
 from typing import Any, Optional
 
 from flask import Flask
@@ -56,11 +57,23 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     app.config["SQLALCHEMY_POOL_SIZE"] = settings.SQLALCHEMY_POOL_SIZE
     app.config["SQLALCHEMY_MAX_OVERFLOW"] = settings.SQLALCHEMY_MAX_OVERFLOW
     app.config["SQLALCHEMY_POOL_TIMEOUT"] = settings.SQLALCHEMY_POOL_TIMEOUT
+    app.config["SQLALCHEMY_POOL_RECYCLE"] = settings.SQLALCHEMY_POOL_RECYCLE
+    app.config["SQLALCHEMY_POOL_PRE_PING"] = settings.SQLALCHEMY_POOL_PRE_PING
 
     # Application: Environment flags
     app.config["DEBUG"] = settings.DEBUG
     app.config["TESTING"] = settings.TESTING
     app.config["ENVIRONMENT"] = settings.ENVIRONMENT
+
+    # Security: Session cookie configuration
+    # Only enforce HTTPS cookies in production (allows local development over HTTP)
+    app.config["SESSION_COOKIE_SECURE"] = settings.SESSION_COOKIE_SECURE and settings.is_production()
+    app.config["SESSION_COOKIE_HTTPONLY"] = settings.SESSION_COOKIE_HTTPONLY
+    app.config["SESSION_COOKIE_SAMESITE"] = settings.SESSION_COOKIE_SAMESITE
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(seconds=settings.PERMANENT_SESSION_LIFETIME)
+
+    # Security: Request body size limits (DoS protection)
+    app.config["MAX_CONTENT_LENGTH"] = settings.MAX_CONTENT_LENGTH
 
     # Apply configuration overrides (used primarily in testing environments)
     if config_overrides:
