@@ -1,4 +1,5 @@
 # app/__init__.py
+from datetime import timedelta
 from typing import Any, Optional
 
 from flask import Flask
@@ -61,6 +62,13 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     app.config["DEBUG"] = settings.DEBUG
     app.config["TESTING"] = settings.TESTING
     app.config["ENVIRONMENT"] = settings.ENVIRONMENT
+
+    # Security: Session cookie configuration
+    # Only enforce HTTPS cookies in production (allows local development over HTTP)
+    app.config["SESSION_COOKIE_SECURE"] = settings.SESSION_COOKIE_SECURE and settings.is_production()
+    app.config["SESSION_COOKIE_HTTPONLY"] = settings.SESSION_COOKIE_HTTPONLY
+    app.config["SESSION_COOKIE_SAMESITE"] = settings.SESSION_COOKIE_SAMESITE
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(seconds=settings.PERMANENT_SESSION_LIFETIME)
 
     # Apply configuration overrides (used primarily in testing environments)
     if config_overrides:

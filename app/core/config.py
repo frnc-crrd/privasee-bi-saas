@@ -236,6 +236,31 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # Session Cookie Security
+    # =========================================================================
+    SESSION_COOKIE_SECURE: bool = Field(
+        default=True,
+        description="Restrict cookies to HTTPS only (disabled in development)",
+    )
+
+    SESSION_COOKIE_HTTPONLY: bool = Field(
+        default=True,
+        description="Prevent JavaScript access to cookies (XSS protection)",
+    )
+
+    SESSION_COOKIE_SAMESITE: str = Field(
+        default="Lax",
+        description="CSRF protection level (Lax, Strict, or None)",
+    )
+
+    PERMANENT_SESSION_LIFETIME: int = Field(
+        default=3600,
+        ge=300,
+        le=86400,
+        description="Session lifetime in seconds (default: 1 hour)",
+    )
+
+    # =========================================================================
     # Pydantic Configuration
     # =========================================================================
     model_config = SettingsConfigDict(
