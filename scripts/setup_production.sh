@@ -231,10 +231,22 @@ generate_production_secrets() {
     fi
 
     log_info "Invoking secrets generation script..."
-    "${SECRETS_SCRIPT}" || return $?
+    "${SECRETS_SCRIPT}"
+    local exit_code=$?
 
-    log_success "Secret generation completed"
-    return 0
+    # Exit code 2 means secrets already exist (idempotency protection)
+    # This is acceptable and should be treated as success
+    if [[ ${exit_code} -eq 0 ]] || [[ ${exit_code} -eq 2 ]]; then
+        if [[ ${exit_code} -eq 2 ]]; then
+            log_info "Secrets already exist (idempotency protection active)"
+        fi
+        log_success "Secret generation completed"
+        return 0
+    fi
+
+    # Any other exit code is a real error
+    log_error "Secret generation failed with exit code ${exit_code}"
+    return ${exit_code}
 }
 
 ################################################################################
