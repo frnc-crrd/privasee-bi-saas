@@ -1,0 +1,32 @@
+# ==============================================================================
+# Grafana Dashboard Provisioning Configuration
+# ==============================================================================
+#
+# Purpose:
+#   Configures dashboard auto-discovery for Grafana.
+#   Dashboards placed in /etc/grafana/provisioning/dashboards/ will be
+#   automatically imported on Grafana startup.
+#
+# Organization:
+#   - Folder: "Privasee BI" (all dashboards grouped under this folder)
+#   - Auto-import: JSON files in /var/lib/grafana/dashboards/
+#
+# Note:
+#   Dashboard JSON files can be added in future commits.
+#   For now, users can manually create dashboards via the Grafana UI.
+#
+# ==============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: 'Privasee Dashboards'
+    orgId: 1
+    folder: 'Privasee BI'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true
