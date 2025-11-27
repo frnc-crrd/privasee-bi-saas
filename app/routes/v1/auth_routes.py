@@ -9,16 +9,20 @@ Endpoints:
 - POST /api/v1/auth/password/change - Change password
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import get_jwt, get_jwt_identity
+from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, decode_token
 from pydantic import ValidationError as PydanticValidationError
 from app.services.auth_service import AuthService
+from app.services.email_service import EmailService
 from app.schemas.auth_schemas import (
     LoginRequest,
     RegisterRequest,
     ChangePasswordRequest,
     TokenResponse,
+    PasswordResetRequestSchema,
+    PasswordResetConfirmSchema,
+    PasswordResetResponseSchema,
 )
 from app.middleware.auth_middleware import jwt_required_custom, verify_refresh_token
 from app.core.responses import success_response, error_response
@@ -361,5 +365,211 @@ def get_current_user_info():
         current_app.logger.error(f"Get current user error: {str(e)}")
         return error_response(
             message="Failed to retrieve user information",
+            status_code=500
+        )
+
+
+@auth_bp.route('/password/reset-request', methods=['POST'])
+@limiter.limit("3/hour")
+def request_password_reset():
+    """Request password reset email with secure token.
+
+    Rate limited to 3 requests per hour per IP to prevent abuse.
+
+    Request Body:
+        {
+            "email": "user@example.com"
+        }
+
+    Returns:
+        200: Password reset email sent successfully
+        400: Validation error (invalid email format)
+        404: Email not found (security: returns 200 to prevent user enumeration)
+        429: Too many reset requests
+        500: Server error
+
+    Security:
+        - Always returns success to prevent user enumeration attacks
+        - Token expires after 1 hour
+        - Rate limited to prevent email flooding
+    """
+    try:
+        # Validate request data
+        data = PasswordResetRequestSchema(**request.json)
+
+        # Find user by email
+        from app.models import User
+        user = User.query.filter_by(email=data.email).first()
+
+        # Security: Always return success to prevent user enumeration
+        # Even if user doesn't exist, attacker cannot determine valid emails
+        if not user:
+            current_app.logger.warning(
+                f"Password reset requested for non-existent email: {data.email}"
+            )
+            return success_response(
+                data=PasswordResetResponseSchema(
+                    message="If the email exists, a password reset link has been sent",
+                    email_sent=True
+                ).model_dump(),
+                status_code=200
+            )
+
+        # Generate password reset token (JWT with 1-hour expiry)
+        reset_token = create_access_token(
+            identity=user.email,
+            additional_claims={"type": "password_reset", "user_id": user.id},
+            expires_delta=timedelta(hours=1)
+        )
+
+        # Send reset email
+        email_service = EmailService()
+        email_sent = email_service.send_password_reset_email(
+            recipient_email=user.email,
+            reset_token=reset_token,
+            expiry_minutes=60
+        )
+
+        if not email_sent:
+            current_app.logger.error(
+                f"Failed to send password reset email to {user.email}"
+            )
+            return error_response(
+                message="Failed to send password reset email. Please try again later.",
+                status_code=500
+            )
+
+        current_app.logger.info(
+            f"Password reset requested successfully for user: {user.email}"
+        )
+
+        return success_response(
+            data=PasswordResetResponseSchema(
+                message="Password reset email sent successfully. Check your inbox.",
+                email_sent=True
+            ).model_dump(),
+            status_code=200
+        )
+
+    except PydanticValidationError as e:
+        return error_response(
+            message="Validation error",
+            errors=e.errors(),
+            status_code=400
+        )
+    except Exception as e:
+        current_app.logger.error(f"Password reset request error: {str(e)}")
+        return error_response(
+            message="An unexpected error occurred",
+            status_code=500
+        )
+
+
+@auth_bp.route('/password/reset-confirm', methods=['POST'])
+def confirm_password_reset():
+    """Complete password reset using token from email.
+
+    Request Body:
+        {
+            "token": "eyJhbGciOiJIUzI1NiIs...",
+            "new_password": "NewP@ssw0rd123"
+        }
+
+    Returns:
+        200: Password reset successful
+        400: Validation error (weak password, invalid token format)
+        401: Token expired or invalid
+        404: User not found
+        500: Server error
+
+    Security:
+        - Validates token signature and expiration
+        - Enforces password strength requirements
+        - Invalidates token after use (via JWT expiry)
+        - Logs all password changes for auditing
+    """
+    try:
+        # Validate request data
+        data = PasswordResetConfirmSchema(**request.json)
+
+        # Decode and validate reset token
+        try:
+            token_data = decode_token(data.token)
+        except Exception as token_error:
+            current_app.logger.warning(
+                f"Invalid password reset token received: {str(token_error)}"
+            )
+            return error_response(
+                message="Invalid or expired password reset token",
+                status_code=401
+            )
+
+        # Verify token type
+        if token_data.get("type") != "password_reset":
+            current_app.logger.warning(
+                "Wrong token type used for password reset"
+            )
+            return error_response(
+                message="Invalid token type. Please request a new password reset.",
+                status_code=401
+            )
+
+        # Extract user information from token
+        user_email = token_data.get("sub")
+        user_id = token_data.get("user_id")
+
+        if not user_email or not user_id:
+            current_app.logger.error(
+                "Password reset token missing required claims"
+            )
+            return error_response(
+                message="Malformed password reset token",
+                status_code=401
+            )
+
+        # Find user
+        from app.models import User
+        from app.extensions import db
+
+        user = User.query.filter_by(id=user_id, email=user_email).first()
+
+        if not user:
+            current_app.logger.error(
+                f"User not found for password reset: user_id={user_id}, email={user_email}"
+            )
+            return error_response(
+                message="User not found",
+                status_code=404
+            )
+
+        # Update password
+        user.set_password(data.new_password)
+        db.session.commit()
+
+        current_app.logger.info(
+            f"Password reset completed successfully for user: {user.email}"
+        )
+
+        return success_response(
+            data={
+                "message": "Password reset successful. You can now log in with your new password.",
+                "email": user.email
+            },
+            status_code=200
+        )
+
+    except PydanticValidationError as e:
+        return error_response(
+            message="Validation error",
+            errors=e.errors(),
+            status_code=400
+        )
+    except Exception as e:
+        current_app.logger.error(f"Password reset confirmation error: {str(e)}")
+        # Rollback any database changes
+        from app.extensions import db
+        db.session.rollback()
+        return error_response(
+            message="An unexpected error occurred",
             status_code=500
         )

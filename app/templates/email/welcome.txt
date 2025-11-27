@@ -1,0 +1,25 @@
+WELCOME TO PRIVASEE BI
+================================================================================
+
+Hello {{ username }},
+
+Thank you for joining Privasee BI. Your account has been successfully created
+and is now active.
+
+WHAT YOU CAN DO WITH PRIVASEE BI:
+- Access interactive business intelligence dashboards
+- Analyze sales trends and performance metrics
+- Generate custom reports and visualizations
+- Export data for further analysis
+
+You can now log in to your account and start exploring the platform.
+
+If you have any questions or need assistance, please contact our support team.
+
+Best regards,
+The Privasee BI Team
+
+================================================================================
+Privasee BI - Business Intelligence Platform
+This is an automated message, please do not reply to this email.
+================================================================================

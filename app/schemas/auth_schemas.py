@@ -486,3 +486,107 @@ class AuthStatusResponse(BaseSchema):
         description="When current session expires",
         examples=["2025-11-24T15:00:00Z"],
     )
+
+
+class PasswordResetRequestSchema(BaseSchema):
+    """Schema for password reset request.
+
+    Initiates password reset flow by sending email with reset token.
+
+    Attributes:
+        email: Email address of account to reset
+
+    Example:
+        >>> reset_request = PasswordResetRequestSchema(
+        ...     email="user@example.com"
+        ... )
+    """
+
+    email: EmailStr = Field(
+        ...,
+        description="Email address associated with account",
+        examples=["user@example.com"],
+    )
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        """Validate email format.
+
+        Args:
+            v: Email address to validate
+
+        Returns:
+            Validated email address (lowercase)
+
+        Raises:
+            ValueError: If email format is invalid
+        """
+        return validate_email_format(v)
+
+
+class PasswordResetConfirmSchema(BaseSchema):
+    """Schema for password reset confirmation.
+
+    Completes password reset using token from email.
+
+    Attributes:
+        token: JWT reset token from email
+        new_password: New password to set
+
+    Example:
+        >>> reset_confirm = PasswordResetConfirmSchema(
+        ...     token="eyJhbGciOiJIUzI1NiIs...",
+        ...     new_password="NewP@ssw0rd123"
+        ... )
+    """
+
+    token: str = Field(
+        ...,
+        min_length=20,
+        description="Password reset token from email",
+    )
+
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        description="New password (min 8 chars, must include uppercase, lowercase, number, special char)",
+        examples=["MyNewP@ssw0rd2025"],
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Validate password strength.
+
+        Args:
+            v: Password to validate
+
+        Returns:
+            Validated password
+
+        Raises:
+            ValueError: If password does not meet strength requirements
+        """
+        return validate_password_strength(v)
+
+
+class PasswordResetResponseSchema(BaseSchema):
+    """Schema for password reset response.
+
+    Attributes:
+        message: Success or error message
+        email_sent: Whether reset email was sent successfully
+    """
+
+    message: str = Field(
+        ...,
+        description="Human-readable response message",
+        examples=["Password reset email sent successfully"],
+    )
+
+    email_sent: bool = Field(
+        default=True,
+        description="Whether email was delivered",
+    )

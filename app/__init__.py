@@ -6,7 +6,7 @@ from flask import Flask
 
 # Import core configuration and extensions
 from app.core.config import Settings, get_settings
-from app.extensions import bcrypt, db, login_manager, jwt, cache, limiter
+from app.extensions import bcrypt, db, login_manager, jwt, cache, limiter, mail
 from app.models import User
 
 
@@ -114,6 +114,25 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
 
     # Initialize cache
     cache.init_app(app)  # type: ignore[arg-type]
+
+    # =========================================================================
+    # Email Configuration (Flask-Mail)
+    # =========================================================================
+    # Configure Flask-Mail for email delivery (password reset, notifications)
+    app.config["MAIL_SERVER"] = settings.MAIL_SERVER
+    app.config["MAIL_PORT"] = settings.MAIL_PORT
+    app.config["MAIL_USE_TLS"] = settings.MAIL_USE_TLS
+    app.config["MAIL_USE_SSL"] = settings.MAIL_USE_SSL
+    app.config["MAIL_USERNAME"] = settings.MAIL_USERNAME
+    app.config["MAIL_PASSWORD"] = settings.MAIL_PASSWORD
+    app.config["MAIL_DEFAULT_SENDER"] = settings.MAIL_DEFAULT_SENDER
+    app.config["MAIL_MAX_EMAILS"] = settings.MAIL_MAX_EMAILS
+
+    # Initialize Mail
+    mail.init_app(app)  # type: ignore[arg-type]
+
+    if not settings.is_testing() and settings.MAIL_USERNAME:
+        app.logger.info(f"Email configured with SMTP server: {settings.MAIL_SERVER}:{settings.MAIL_PORT}")
 
     # =========================================================================
     # Rate Limiting Configuration
