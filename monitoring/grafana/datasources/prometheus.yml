@@ -1,0 +1,26 @@
+# ==============================================================================
+# Grafana Datasource Configuration - Prometheus
+# ==============================================================================
+#
+# Purpose:
+#   Automatically provisions Prometheus as a datasource in Grafana on startup.
+#
+# Connection:
+#   - Prometheus URL: http://privasee-prometheus:9090 (internal Docker network)
+#   - Access mode: proxy (Grafana backend connects to Prometheus)
+#   - Default: true (used as default datasource for dashboards)
+#
+# ==============================================================================
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://privasee-prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST

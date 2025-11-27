@@ -1,0 +1,91 @@
+# ==============================================================================
+# Prometheus Configuration
+# ==============================================================================
+#
+# Purpose:
+#   Configures Prometheus to scrape metrics from the Privasee BI SaaS application
+#   and other infrastructure components.
+#
+# Scrape Targets:
+#   - Flask Application (port 5000) - Application metrics
+#   - PostgreSQL Exporter (future) - Database metrics
+#   - Redis Exporter (future) - Cache metrics
+#   - Node Exporter (future) - System metrics
+#
+# Retention:
+#   - 30 days (configured in docker-compose.prod.yml)
+#
+# ==============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'privasee-production'
+    environment: 'production'
+
+# Alertmanager configuration (optional, for future use)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Rule files (optional, for future use)
+# rule_files:
+#   - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # ==============================================================================
+  # Prometheus Self-Monitoring
+  # ==============================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          component: 'monitoring'
+
+  # ==============================================================================
+  # Flask Application Metrics
+  # ==============================================================================
+  - job_name: 'privasee-app'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['privasee-app:5000']
+        labels:
+          service: 'application'
+          component: 'backend'
+    scrape_interval: 10s
+    scrape_timeout: 10s
+
+  # ==============================================================================
+  # Future: PostgreSQL Metrics
+  # ==============================================================================
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+  #       labels:
+  #         service: 'database'
+  #         component: 'postgresql'
+
+  # ==============================================================================
+  # Future: Redis Metrics
+  # ==============================================================================
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+  #       labels:
+  #         service: 'cache'
+  #         component: 'redis'
+
+  # ==============================================================================
+  # Future: Node Exporter (System Metrics)
+  # ==============================================================================
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+  #       labels:
+  #         service: 'infrastructure'
+  #         component: 'system'
