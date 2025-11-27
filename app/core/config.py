@@ -261,6 +261,16 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # Request Security Limits
+    # =========================================================================
+    MAX_CONTENT_LENGTH: int = Field(
+        default=16777216,  # 16 MB in bytes
+        ge=1048576,  # Min 1 MB
+        le=104857600,  # Max 100 MB
+        description="Maximum request body size in bytes (DoS protection)",
+    )
+
+    # =========================================================================
     # Pydantic Configuration
     # =========================================================================
     model_config = SettingsConfigDict(

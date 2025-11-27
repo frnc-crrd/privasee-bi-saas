@@ -70,6 +70,9 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     app.config["SESSION_COOKIE_SAMESITE"] = settings.SESSION_COOKIE_SAMESITE
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(seconds=settings.PERMANENT_SESSION_LIFETIME)
 
+    # Security: Request body size limits (DoS protection)
+    app.config["MAX_CONTENT_LENGTH"] = settings.MAX_CONTENT_LENGTH
+
     # Apply configuration overrides (used primarily in testing environments)
     if config_overrides:
         app.config.update(config_overrides)  # type: ignore[arg-type]
