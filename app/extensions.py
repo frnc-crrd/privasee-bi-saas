@@ -8,6 +8,7 @@ This follows the 'Application Factory' pattern.
 
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
+from flask_mail import Mail
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_caching import Cache
@@ -31,6 +32,10 @@ jwt = JWTManager()
 # Initialize Flask-Caching for response and query caching
 # Supports multiple backends (simple, redis, memcached)
 cache = Cache()
+
+# Initialize Flask-Mail for email delivery
+# Supports SMTP, Sendgrid, and other email backends
+mail = Mail()
 
 # Initialize Flask-Limiter for rate limiting
 # Protects against brute force and API abuse

@@ -283,6 +283,53 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # Email Configuration (Flask-Mail)
+    # =========================================================================
+    MAIL_SERVER: str = Field(
+        default="smtp.gmail.com",
+        description="SMTP server hostname",
+    )
+
+    MAIL_PORT: int = Field(
+        default=587,
+        ge=1,
+        le=65535,
+        description="SMTP server port (587 for TLS, 465 for SSL)",
+    )
+
+    MAIL_USE_TLS: bool = Field(
+        default=True,
+        description="Use TLS encryption for SMTP connection",
+    )
+
+    MAIL_USE_SSL: bool = Field(
+        default=False,
+        description="Use SSL encryption for SMTP connection (mutually exclusive with TLS)",
+    )
+
+    MAIL_USERNAME: str = Field(
+        default="",
+        description="SMTP authentication username (email address)",
+    )
+
+    MAIL_PASSWORD: str = Field(
+        default="",
+        description="SMTP authentication password (use app password for Gmail)",
+    )
+
+    MAIL_DEFAULT_SENDER: str = Field(
+        default="noreply@privasee.com",
+        description="Default 'From' address for outgoing emails",
+    )
+
+    MAIL_MAX_EMAILS: int = Field(
+        default=50,
+        ge=1,
+        le=1000,
+        description="Maximum emails to send per SMTP connection",
+    )
+
+    # =========================================================================
     # Pydantic Configuration
     # =========================================================================
     model_config = SettingsConfigDict(

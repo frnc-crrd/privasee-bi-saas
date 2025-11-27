@@ -24,6 +24,7 @@ Flask-CORS==4.0.0
 Flask-JWT-Extended==4.7.1
 Flask-Limiter==4.0.0
 Flask-Login==0.6.3
+Flask-Mail==0.10.0
 Flask-SQLAlchemy==3.1.1
 fsspec==2025.10.0
 gitdb==4.0.12
