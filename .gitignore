@@ -105,6 +105,9 @@ docker-compose.override.yml
 
 # Container Logs (Rotation managed by Dozzle/Docker drivers, not Git)
 *.log
+logs/
+nginx/logs/
+certbot-logs/
 
 # ==============================================================================
 # WEB FRAMEWORK & DASHBOARDING (Flask, Vizro, Gunicorn)
