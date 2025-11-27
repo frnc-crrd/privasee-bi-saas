@@ -161,24 +161,36 @@ class Settings(BaseSettings):
     )
 
     SQLALCHEMY_POOL_SIZE: int = Field(
-        default=5,
+        default=20,
         ge=1,
-        le=20,
-        description="Database connection pool size",
+        le=100,
+        description="Database connection pool size (increased for production load)",
     )
 
     SQLALCHEMY_MAX_OVERFLOW: int = Field(
-        default=10,
+        default=30,
         ge=0,
-        le=50,
-        description="Max connections beyond pool size",
+        le=100,
+        description="Max connections beyond pool size (handles traffic bursts)",
     )
 
     SQLALCHEMY_POOL_TIMEOUT: int = Field(
-        default=30,
+        default=60,
         ge=1,
         le=300,
         description="Connection acquisition timeout in seconds",
+    )
+
+    SQLALCHEMY_POOL_RECYCLE: int = Field(
+        default=3600,
+        ge=300,
+        le=28800,
+        description="Recycle connections after N seconds (prevents stale connections)",
+    )
+
+    SQLALCHEMY_POOL_PRE_PING: bool = Field(
+        default=True,
+        description="Test connections before using them (detects broken connections)",
     )
 
     # =========================================================================

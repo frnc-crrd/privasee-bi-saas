@@ -57,6 +57,8 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     app.config["SQLALCHEMY_POOL_SIZE"] = settings.SQLALCHEMY_POOL_SIZE
     app.config["SQLALCHEMY_MAX_OVERFLOW"] = settings.SQLALCHEMY_MAX_OVERFLOW
     app.config["SQLALCHEMY_POOL_TIMEOUT"] = settings.SQLALCHEMY_POOL_TIMEOUT
+    app.config["SQLALCHEMY_POOL_RECYCLE"] = settings.SQLALCHEMY_POOL_RECYCLE
+    app.config["SQLALCHEMY_POOL_PRE_PING"] = settings.SQLALCHEMY_POOL_PRE_PING
 
     # Application: Environment flags
     app.config["DEBUG"] = settings.DEBUG
