@@ -88,6 +88,10 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     # Initialize SQLAlchemy ORM for database operations
     db.init_app(app)  # type: ignore[arg-type]
 
+    # Initialize Flask-Migrate for database migrations
+    from app.extensions import migrate
+    migrate.init_app(app, db)  # type: ignore[arg-type]
+
     # Initialize Bcrypt for secure password hashing
     bcrypt.init_app(app)  # type: ignore[arg-type]
 
@@ -192,16 +196,23 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     # =========================================================================
     # Ensure database tables exist on application startup
     with app.app_context():
-        # Create all tables defined in models (development/testing only)
-        # Production environments should use Alembic migrations instead
-        db.create_all()
-
-        # Log successful initialization (suppress in testing to reduce noise)
-        if not settings.is_testing():
-            print(
-                f">> System: Database tables verified/created successfully. "
-                f"Environment: {settings.ENVIRONMENT}"
-            )
+        # In development/testing: Auto-create tables for convenience
+        # In production: Use Alembic migrations (flask db upgrade)
+        if settings.ENVIRONMENT == 'development' or settings.TESTING:
+            db.create_all()
+            if not settings.is_testing():
+                print(
+                    f">> System: Database tables auto-created (development mode). "
+                    f"Environment: {settings.ENVIRONMENT}"
+                )
+        else:
+            # Production: Verify migrations are applied
+            if not settings.is_testing():
+                print(
+                    f">> System: Production mode - using Alembic migrations. "
+                    f"Run 'flask db upgrade' to apply pending migrations. "
+                    f"Environment: {settings.ENVIRONMENT}"
+                )
 
     # =========================================================================
     # Exception Handlers Registration
