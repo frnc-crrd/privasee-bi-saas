@@ -9,6 +9,7 @@ This follows the 'Application Factory' pattern.
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_mail import Mail
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_caching import Cache
@@ -16,6 +17,10 @@ from flask_caching import Cache
 # Initialize SQLAlchemy with declarative base connection
 # This object will be used by models.py to define tables
 db = SQLAlchemy()
+
+# Initialize Flask-Migrate for database migrations
+# Provides Alembic integration for schema versioning
+migrate = Migrate()
 
 # Initialize Bcrypt for secure password hashing
 bcrypt = Bcrypt()

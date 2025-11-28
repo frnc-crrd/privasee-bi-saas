@@ -88,6 +88,10 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
     # Initialize SQLAlchemy ORM for database operations
     db.init_app(app)  # type: ignore[arg-type]
 
+    # Initialize Flask-Migrate for database migrations
+    from app.extensions import migrate
+    migrate.init_app(app, db)  # type: ignore[arg-type]
+
     # Initialize Bcrypt for secure password hashing
     bcrypt.init_app(app)  # type: ignore[arg-type]
 
