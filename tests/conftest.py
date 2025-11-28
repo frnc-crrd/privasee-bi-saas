@@ -76,9 +76,22 @@ def session_cleanup(app):
     # The yield pauses the fixture until the test finishes
     yield
 
-    # Clean logging handlers again
+    # Clean up after test
     root_logger.handlers.clear()
     root_logger.setLevel(logging.WARNING)
+
+    # Force cleanup of Flask g object by creating a temporary request context
+    # This ensures ALL context data is cleared between tests
+    with app.test_request_context():
+        from flask import g
+        # Get all non-private attributes
+        attrs_to_delete = [attr for attr in dir(g) if not attr.startswith('_')]
+        for attr in attrs_to_delete:
+            try:
+                delattr(g, attr)
+            except (AttributeError, TypeError):
+                # Some attributes might be read-only or non-deletable
+                pass
 
 
 # =========================================================================
