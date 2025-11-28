@@ -1,5 +1,6 @@
 """Prometheus metrics collection and monitoring."""
 
+import time
 from typing import Callable, Optional
 
 from flask import Flask, Response, request
@@ -121,7 +122,7 @@ class MetricsMiddleware:
         http_requests_in_progress.labels(method=method, endpoint=endpoint).inc()
 
         # Store start time for duration calculation
-        request._prometheus_metrics_start_time = request._start_time
+        request._prometheus_metrics_start_time = time.time()
 
     def _after_request(self, response: WerkzeugResponse) -> WerkzeugResponse:
         """
@@ -149,7 +150,7 @@ class MetricsMiddleware:
 
         # Record request duration
         if hasattr(request, '_prometheus_metrics_start_time'):
-            duration = request._start_time - request._prometheus_metrics_start_time
+            duration = time.time() - request._prometheus_metrics_start_time
             http_request_duration_seconds.labels(
                 method=method,
                 endpoint=endpoint

@@ -29,7 +29,7 @@ class TestListUsers:
         data = json.loads(response.data)
         assert data["success"] is True
         assert "users" in data["data"]
-        assert "pagination" in data["data"]
+        assert "pagination" in data["meta"]
         assert len(data["data"]["users"]) >= 2  # At least admin and viewer
 
     def test_list_users_as_analyst(self, client, db, analyst_user, analyst_headers):
@@ -58,14 +58,14 @@ class TestListUsers:
     def test_list_users_with_pagination(self, client, db, auth_headers):
         """Test user list pagination."""
         response = client.get(
-            "/api/v1/users?skip=0&limit=10",
+            "/api/v1/users?page=1&per_page=10",
             headers=auth_headers
         )
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["data"]["pagination"]["skip"] == 0
-        assert data["data"]["pagination"]["limit"] == 10
+        assert data["meta"]["pagination"]["page"] == 1
+        assert data["meta"]["pagination"]["per_page"] == 10
 
     def test_list_users_with_role_filter(self, client, db, admin_user, viewer_user, auth_headers):
         """Test filtering users by role."""
