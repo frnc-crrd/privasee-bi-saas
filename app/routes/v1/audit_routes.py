@@ -151,7 +151,17 @@ def get_audit_logs():
         limit = request.args.get('limit', 20, type=int)
         limit = min(limit, 100)  # Cap at 100 items per page
 
-        pagination_result = paginate_query(query, page=page, per_page=limit)
+        from app.core.pagination import PaginationParams
+        pagination_params = PaginationParams(page=page, per_page=limit)
+        items, pagination_meta = paginate_query(query, pagination_params)
+
+        pagination_result = {
+            'items': items,
+            'page': pagination_meta.page,
+            'per_page': pagination_meta.per_page,
+            'total': pagination_meta.total,
+            'pages': pagination_meta.total_pages
+        }
 
         # Serialize audit logs
         logs = [
