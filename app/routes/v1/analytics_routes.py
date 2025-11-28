@@ -18,6 +18,7 @@ from app.middleware.rbac_middleware import require_analyst_or_admin
 from app.core.responses import success_response, error_response
 from app.exceptions.validation import ValidationError
 from app.exceptions.base import DatabaseException
+from app.extensions import cache
 
 
 # Create blueprint
@@ -30,6 +31,7 @@ analytics_service = AnalyticsService()
 @analytics_bp.route('/sales/summary', methods=['GET'])
 @jwt_required_custom()
 @require_analyst_or_admin()
+@cache.cached(timeout=300, query_string=True)
 def get_sales_summary():
     """
     Get sales summary metrics for a date range.
@@ -84,6 +86,7 @@ def get_sales_summary():
 @analytics_bp.route('/sales/products', methods=['GET'])
 @jwt_required_custom()
 @require_analyst_or_admin()
+@cache.cached(timeout=300, query_string=True)
 def get_product_performance():
     """
     Get top performing products by sales.
@@ -141,6 +144,7 @@ def get_product_performance():
 @analytics_bp.route('/sales/locations', methods=['GET'])
 @jwt_required_custom()
 @require_analyst_or_admin()
+@cache.cached(timeout=300, query_string=True)
 def get_location_performance():
     """
     Get sales performance by location (Sucursal).
@@ -198,6 +202,7 @@ def get_location_performance():
 @analytics_bp.route('/sales/trends', methods=['GET'])
 @jwt_required_custom()
 @require_analyst_or_admin()
+@cache.cached(timeout=300, query_string=True)
 def get_sales_trends():
     """
     Get sales trends over time.
@@ -255,6 +260,7 @@ def get_sales_trends():
 @analytics_bp.route('/sales/categories', methods=['GET'])
 @jwt_required_custom()
 @require_analyst_or_admin()
+@cache.cached(timeout=300, query_string=True)
 def get_category_breakdown():
     """
     Get sales breakdown by product category.
@@ -312,6 +318,7 @@ def get_category_breakdown():
 @analytics_bp.route('/tables', methods=['GET'])
 @jwt_required_custom()
 @require_analyst_or_admin()
+@cache.cached(timeout=600)
 def list_available_tables():
     """
     Get list of available tables in analytical cube.
@@ -348,6 +355,7 @@ def list_available_tables():
 @analytics_bp.route('/tables/<table_name>/schema', methods=['GET'])
 @jwt_required_custom()
 @require_analyst_or_admin()
+@cache.cached(timeout=600, key_prefix='table_schema')
 def get_table_schema(table_name: str):
     """
     Get schema information for a table.
