@@ -15,6 +15,7 @@ from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, d
 from pydantic import ValidationError as PydanticValidationError
 from app.services.auth_service import AuthService
 from app.services.email_service import EmailService
+from app.services.audit_service import AuditService
 from app.schemas.auth_schemas import (
     LoginRequest,
     RegisterRequest,
@@ -77,6 +78,14 @@ def register():
             email=register_data.email,
             password=register_data.password,
             role=register_data.role
+        )
+
+        # Audit log user creation
+        AuditService.log_user_created(
+            user_id=result['user']['id'],
+            username=result['user']['username'],
+            details={'role': register_data.role},
+            status_code=201
         )
 
         current_app.logger.info(f"User registered: {register_data.username}")
@@ -144,6 +153,13 @@ def login():
             password=login_data.password
         )
 
+        # Audit log successful login
+        AuditService.log_login(
+            user_id=result['user']['id'],
+            username=result['user']['username'],
+            status_code=200
+        )
+
         current_app.logger.info(f"User logged in: {login_data.email}")
 
         return success_response(
@@ -158,6 +174,13 @@ def login():
             status_code=400
         )
     except InvalidCredentialsError as e:
+        # Audit log failed login attempt
+        AuditService.log_login_failed(
+            username=login_data.email,
+            status_code=401,
+            details={'reason': 'invalid_credentials'}
+        )
+
         return error_response(
             message=str(e),
             status_code=401
@@ -236,9 +259,18 @@ def logout():
         jti = claims['jti']
         exp = claims['exp']
         exp_datetime = datetime.fromtimestamp(exp, tz=timezone.utc)
+        user_id = int(get_jwt_identity())
+        username = claims.get('username', '')
 
         # Logout user (blacklist token)
         auth_service.logout_user(jti, exp_datetime)
+
+        # Audit log logout
+        AuditService.log_logout(
+            user_id=user_id,
+            username=username,
+            status_code=200
+        )
 
         current_app.logger.info(f"User logged out: {get_jwt_identity()}")
 
@@ -285,14 +317,23 @@ def change_password():
         data = request.get_json()
         password_data = ChangePasswordRequest(**data)
 
-        # Get current user ID
+        # Get current user ID and username from JWT
         user_id = int(get_jwt_identity())
+        claims = get_jwt()
+        username = claims.get('username', '')
 
         # Change password
         auth_service.change_password(
             user_id=user_id,
             old_password=password_data.old_password,
             new_password=password_data.new_password
+        )
+
+        # Audit log password change
+        AuditService.log_password_change(
+            user_id=user_id,
+            username=username,
+            status_code=200
         )
 
         current_app.logger.info(f"Password changed for user: {user_id}")
@@ -545,6 +586,13 @@ def confirm_password_reset():
         # Update password
         user.set_password(data.new_password)
         db.session.commit()
+
+        # Audit log password reset
+        AuditService.log_password_reset(
+            user_id=user.id,
+            username=user.username,
+            status_code=200
+        )
 
         current_app.logger.info(
             f"Password reset completed successfully for user: {user.email}"
