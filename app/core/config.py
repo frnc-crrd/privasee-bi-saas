@@ -100,6 +100,36 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # Cloudflare Turnstile (Bot Protection)
+    # =========================================================================
+    TURNSTILE_ENABLED: bool = Field(
+        default=False,
+        description="Enable Cloudflare Turnstile verification (disable in dev/test)",
+    )
+
+    TURNSTILE_SITE_KEY: str = Field(
+        default="",
+        description="Cloudflare Turnstile site key (public, for frontend widget)",
+    )
+
+    TURNSTILE_SECRET_KEY: str = Field(
+        default="",
+        description="Cloudflare Turnstile secret key (private, for backend validation)",
+    )
+
+    TURNSTILE_VERIFY_URL: str = Field(
+        default="https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        description="Cloudflare Turnstile verification endpoint",
+    )
+
+    TURNSTILE_TIMEOUT: int = Field(
+        default=5,
+        ge=1,
+        le=30,
+        description="Turnstile verification request timeout in seconds",
+    )
+
+    # =========================================================================
     # PostgreSQL Authentication Database (OLTP)
     # =========================================================================
     AUTH_DB_USER: str = Field(

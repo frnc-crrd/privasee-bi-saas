@@ -26,6 +26,7 @@ from app.schemas.auth_schemas import (
     PasswordResetResponseSchema,
 )
 from app.middleware.auth_middleware import jwt_required_custom, verify_refresh_token
+from app.middleware.turnstile_middleware import require_turnstile_json
 from app.core.responses import success_response, error_response
 from app.exceptions.auth import (
     InvalidCredentialsError,
@@ -45,6 +46,7 @@ auth_service = AuthService()
 
 @auth_bp.route('/register', methods=['POST'])
 @limiter.limit("10/hour")  # Limit registration attempts
+@require_turnstile_json()  # Bot protection
 def register():
     """
     Register a new user.
@@ -122,6 +124,7 @@ def register():
 
 @auth_bp.route('/login', methods=['POST'])
 @limiter.limit("5/minute")  # Strict rate limiting for brute force protection
+@require_turnstile_json()  # Bot protection
 def login():
     """
     Authenticate user and return tokens.
@@ -412,6 +415,7 @@ def get_current_user_info():
 
 @auth_bp.route('/password/reset-request', methods=['POST'])
 @limiter.limit("3/hour")
+@require_turnstile_json()  # Bot protection
 def request_password_reset():
     """Request password reset email with secure token.
 
