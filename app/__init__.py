@@ -262,6 +262,18 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
             app.logger.warning("Prometheus metrics not available (prometheus-client not installed)")
 
     # =========================================================================
+    # Database Query Performance Monitoring
+    # =========================================================================
+    # Initialize query performance monitoring with SQLAlchemy event listeners
+    try:
+        from app.core.query_monitoring import init_query_monitoring
+        init_query_monitoring(app)
+    except Exception as e:
+        # Query monitoring is optional, log warning but don't fail
+        if not settings.is_testing():
+            app.logger.warning(f"Query performance monitoring initialization failed: {str(e)}")
+
+    # =========================================================================
     # Blueprint Registration
     # =========================================================================
     # Register application blueprints for modular route organization

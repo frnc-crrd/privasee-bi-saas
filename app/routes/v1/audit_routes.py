@@ -23,7 +23,7 @@ from app.core.responses import success_response, error_response
 from app.middleware.auth_middleware import jwt_required_custom
 from app.middleware.rbac_middleware import require_role
 from app.models import AuditLog, AuditEventType, AuditSeverity
-from app.extensions import db
+from app.extensions import db, cache
 
 
 # Create blueprint
@@ -269,6 +269,7 @@ def get_audit_log(log_id: int):
 @audit_bp.route('/stats', methods=['GET'])
 @jwt_required_custom()
 @require_role('admin')
+@cache.cached(timeout=300, query_string=True)
 def get_audit_stats():
     """
     Get audit log statistics (admin only).
@@ -289,45 +290,63 @@ def get_audit_stats():
         - Admin only
     """
     try:
+        from sqlalchemy import func
+
         # Build base query
-        query = AuditLog.query
+        base_query = db.session.query(AuditLog)
 
         # Apply date filters if provided
         start_date_str = request.args.get('start_date')
         if start_date_str:
             start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
-            query = query.filter(AuditLog.timestamp >= start_date)
+            base_query = base_query.filter(AuditLog.timestamp >= start_date)
 
         end_date_str = request.args.get('end_date')
         if end_date_str:
             end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
-            query = query.filter(AuditLog.timestamp <= end_date)
-
-        # Count events by type
-        event_counts = {}
-        for event_type in AuditEventType:
-            count = query.filter(AuditLog.event_type == event_type).count()
-            if count > 0:
-                event_counts[event_type.value] = count
-
-        # Count events by severity
-        severity_counts = {}
-        for severity in AuditSeverity:
-            count = query.filter(AuditLog.severity == severity).count()
-            if count > 0:
-                severity_counts[severity.value] = count
+            base_query = base_query.filter(AuditLog.timestamp <= end_date)
 
         # Total events
-        total_events = query.count()
+        total_events = base_query.count()
+
+        # Count events by type using single query with group_by
+        event_type_results = (
+            db.session.query(
+                AuditLog.event_type,
+                func.count(AuditLog.id).label('count')
+            )
+            .filter(*base_query.whereclause.clauses if base_query.whereclause is not None else [])
+            .group_by(AuditLog.event_type)
+            .all()
+        )
+        event_counts = {
+            event_type.value: count
+            for event_type, count in event_type_results
+        }
+
+        # Count events by severity using single query with group_by
+        severity_results = (
+            db.session.query(
+                AuditLog.severity,
+                func.count(AuditLog.id).label('count')
+            )
+            .filter(*base_query.whereclause.clauses if base_query.whereclause is not None else [])
+            .group_by(AuditLog.severity)
+            .all()
+        )
+        severity_counts = {
+            severity.value: count
+            for severity, count in severity_results
+        }
 
         # Top users by event count (limit to 10)
-        from sqlalchemy import func
         top_users = (
             db.session.query(
                 AuditLog.username,
                 func.count(AuditLog.id).label('event_count')
             )
             .filter(AuditLog.username.isnot(None))
+            .filter(*base_query.whereclause.clauses if base_query.whereclause is not None else [])
             .group_by(AuditLog.username)
             .order_by(func.count(AuditLog.id).desc())
             .limit(10)
