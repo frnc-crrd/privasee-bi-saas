@@ -14,11 +14,12 @@ Usage:
 from typing import Optional
 
 import dash
+import dash_bootstrap_components as dbc
 from dash import Dash, html, dcc
 from flask import Flask
 
-from app.dashboard.layouts.sales_dashboard import get_sales_dashboard_layout
-from app.dashboard.callbacks.sales_callbacks import register_sales_callbacks
+from app.dashboard.layouts.sales_dashboard_modern import get_modern_sales_dashboard_layout
+from app.dashboard.callbacks.sales_callbacks_modern import register_sales_callbacks
 
 
 def create_dash_app(
@@ -49,10 +50,12 @@ def create_dash_app(
         suppress_callback_exceptions=True,
         title=title,
         external_stylesheets=[
-            # Bootstrap for responsive design
-            'https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css',
+            # Dash Bootstrap Components theme (modern design)
+            dbc.themes.BOOTSTRAP,
             # Font Awesome for icons
             'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
+            # Google Fonts for better typography
+            'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
         ],
         meta_tags=[
             # Responsive meta tag
@@ -81,13 +84,23 @@ def create_dash_app(
             Dashboard layout
         """
         if pathname == url_base_pathname or pathname == f'{url_base_pathname}sales':
-            return get_sales_dashboard_layout()
+            return get_modern_sales_dashboard_layout()
         else:
-            return html.Div([
-                html.H1('404: Page Not Found', className='text-center mt-5'),
-                html.P('The requested dashboard does not exist.', className='text-center'),
-                html.A('Go to Sales Dashboard', href=f'{url_base_pathname}sales', className='btn btn-primary')
-            ], className='container')
+            return dbc.Container([
+                dbc.Row([
+                    dbc.Col([
+                        html.Div([
+                            html.I(className='fas fa-exclamation-triangle fa-5x text-warning mb-4'),
+                            html.H1('404: Page Not Found', className='display-4 fw-bold mb-3'),
+                            html.P('The requested dashboard does not exist.', className='lead text-muted mb-4'),
+                            dbc.Button([
+                                html.I(className='fas fa-home me-2'),
+                                'Go to Sales Dashboard'
+                            ], href=f'{url_base_pathname}sales', color='primary', size='lg')
+                        ], className='text-center py-5')
+                    ], width=12)
+                ])
+            ], className='mt-5')
 
     # Register callbacks
     register_sales_callbacks(dash_app)
