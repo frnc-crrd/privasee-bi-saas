@@ -34,30 +34,241 @@ audit_bp = Blueprint('audit', __name__)
 @jwt_required_custom()
 def get_audit_logs():
     """
-    Get audit logs with filtering and pagination.
+    Query audit logs with advanced filtering, pagination, and role-based access control.
+    ---
+    tags:
+      - Audit Logs
+    summary: List audit logs
+    description: |
+      Retrieves security audit logs with comprehensive filtering capabilities. Audit logs track all
+      security-relevant events including authentication, authorization, and data access operations.
 
-    Query Parameters:
-        - page: Page number (default: 1)
-        - limit: Items per page (default: 20, max: 100)
-        - user_id: Filter by user ID
-        - event_type: Filter by event type (login, logout, etc.)
-        - severity: Filter by severity (info, warning, critical)
-        - start_date: Filter events after this date (ISO 8601)
-        - end_date: Filter events before this date (ISO 8601)
-        - ip_address: Filter by IP address
+      **Features:**
+      - Comprehensive event tracking (login, logout, password changes, data access)
+      - Multi-dimensional filtering (user, event type, severity, time range, IP address)
+      - Pagination for large result sets
+      - Role-based access control (admins see all, users see own logs)
+      - Timestamp ordering (newest first)
 
-    Returns:
-        200: Paginated list of audit logs
-        400: Invalid query parameters
-        403: Insufficient permissions
+      **Use Cases:**
+      - Security incident investigation
+      - Compliance auditing (SOC 2, HIPAA, GDPR)
+      - User activity monitoring
+      - Threat detection and analysis
+      - Forensic investigation post-breach
 
-    Example:
-        $ curl -X GET "http://localhost:5000/api/v1/audit/logs?event_type=login&page=1&limit=20" \\
-          -H "Authorization: Bearer <access_token>"
+      **Authorization Rules:**
+      - Admin users: Can view all audit logs across all users
+      - Non-admin users: Can only view their own audit logs (automatic filtering by user_id)
 
-    Security:
-        - Admin users can view all logs
-        - Non-admin users can only view their own logs
+      **Event Types:**
+      - login: User authentication events
+      - logout: User logout events
+      - password_change: Password modification
+      - password_reset: Password reset operations
+      - user_created: New user registration
+      - user_updated: User profile modifications
+      - user_deleted: User deactivation
+      - permission_denied: Authorization failures
+      - data_access: Sensitive data access
+
+      **Severity Levels:**
+      - info: Normal operations (successful login)
+      - warning: Suspicious activity (failed login attempts)
+      - critical: Security incidents (unauthorized access attempts)
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: page
+        type: integer
+        required: false
+        default: 1
+        description: Page number (starts at 1)
+        example: 1
+      - in: query
+        name: limit
+        type: integer
+        required: false
+        default: 20
+        description: Items per page (maximum 100)
+        example: 20
+      - in: query
+        name: user_id
+        type: integer
+        required: false
+        description: Filter by user ID (admin only - returns 403 for non-admins)
+        example: 42
+      - in: query
+        name: event_type
+        type: string
+        required: false
+        enum: [login, logout, password_change, password_reset, user_created, user_updated, user_deleted, permission_denied, data_access]
+        description: Filter by event type
+        example: "login"
+      - in: query
+        name: severity
+        type: string
+        required: false
+        enum: [info, warning, critical]
+        description: Filter by severity level
+        example: "warning"
+      - in: query
+        name: start_date
+        type: string
+        format: date-time
+        required: false
+        description: Filter events after this timestamp (ISO 8601 format)
+        example: "2024-01-01T00:00:00Z"
+      - in: query
+        name: end_date
+        type: string
+        format: date-time
+        required: false
+        description: Filter events before this timestamp (ISO 8601 format)
+        example: "2024-12-31T23:59:59Z"
+      - in: query
+        name: ip_address
+        type: string
+        required: false
+        description: Filter by source IP address
+        example: "192.168.1.100"
+    responses:
+      200:
+        description: Audit logs retrieved successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "Retrieved 15 audit log(s)"
+            data:
+              type: object
+              properties:
+                logs:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1234
+                        description: Audit log entry ID
+                      event_type:
+                        type: string
+                        example: "login"
+                        description: Type of security event
+                      severity:
+                        type: string
+                        example: "info"
+                        description: Event severity level
+                      user_id:
+                        type: integer
+                        example: 42
+                        description: User who triggered the event
+                      username:
+                        type: string
+                        example: "john.doe"
+                        description: Username
+                      ip_address:
+                        type: string
+                        example: "192.168.1.100"
+                        description: Source IP address
+                      user_agent:
+                        type: string
+                        example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                        description: Client user agent string
+                      endpoint:
+                        type: string
+                        example: "/api/v1/auth/login"
+                        description: API endpoint accessed
+                      method:
+                        type: string
+                        example: "POST"
+                        description: HTTP method
+                      status_code:
+                        type: integer
+                        example: 200
+                        description: HTTP response status code
+                      details:
+                        type: object
+                        example: {"login_method": "email"}
+                        description: Additional event-specific metadata (JSON)
+                      timestamp:
+                        type: string
+                        format: date-time
+                        example: "2024-03-15T14:30:00Z"
+                        description: Event timestamp (ISO 8601)
+                pagination:
+                  type: object
+                  properties:
+                    page:
+                      type: integer
+                      example: 1
+                    per_page:
+                      type: integer
+                      example: 20
+                    total_items:
+                      type: integer
+                      example: 150
+                    total_pages:
+                      type: integer
+                      example: 8
+      400:
+        description: Validation error (invalid event_type, severity, or date format)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Invalid event_type: invalid_type"
+            details:
+              type: object
+              properties:
+                valid_types:
+                  type: array
+                  items:
+                    type: string
+                  example: ["login", "logout", "password_change"]
+      401:
+        description: Unauthorized (missing or invalid JWT token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Missing or invalid token"
+      403:
+        description: Forbidden (non-admin trying to filter by user_id)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Only administrators can filter by user_id"
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Failed to retrieve audit logs"
     """
     try:
         # Get current user info
@@ -207,23 +418,157 @@ def get_audit_logs():
 @jwt_required_custom()
 def get_audit_log(log_id: int):
     """
-    Get a specific audit log entry by ID.
+    Retrieve detailed information for a specific audit log entry by ID.
+    ---
+    tags:
+      - Audit Logs
+    summary: Get audit log by ID
+    description: |
+      Retrieves complete details for a single audit log entry, including event metadata,
+      user information, network details, and event-specific context.
 
-    Args:
-        log_id: Audit log entry ID
+      **Features:**
+      - Full audit log record with all metadata
+      - Role-based access control (RBAC)
+      - Detailed event context (JSON details field)
+      - Network information (IP, user agent)
+      - HTTP request metadata (endpoint, method, status code)
 
-    Returns:
-        200: Audit log details
-        404: Log not found
-        403: Insufficient permissions
+      **Use Cases:**
+      - Deep-dive investigation of specific security event
+      - Incident response and forensics
+      - Compliance audit trail review
+      - User activity verification
+      - Dispute resolution (prove/disprove user actions)
 
-    Example:
-        $ curl -X GET "http://localhost:5000/api/v1/audit/logs/123" \\
-          -H "Authorization: Bearer <access_token>"
+      **Authorization Rules:**
+      - Admin users: Can view any audit log entry (no restrictions)
+      - Non-admin users: Can only view their own audit logs (403 if accessing another user's log)
 
-    Security:
-        - Admin users can view any log
-        - Non-admin users can only view their own logs
+      **Security Considerations:**
+      - Audit logs are immutable (cannot be modified or deleted)
+      - Sensitive data in details field is logged for security purposes
+      - Access to audit logs is itself audited
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: log_id
+        type: integer
+        required: true
+        description: Unique audit log entry identifier
+        example: 1234
+    responses:
+      200:
+        description: Audit log entry retrieved successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "Audit log retrieved successfully"
+            data:
+              type: object
+              properties:
+                log:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1234
+                      description: Audit log entry ID
+                    event_type:
+                      type: string
+                      example: "login"
+                      description: Type of security event
+                    severity:
+                      type: string
+                      example: "info"
+                      description: Event severity level (info, warning, critical)
+                    user_id:
+                      type: integer
+                      example: 42
+                      description: User who triggered the event
+                    username:
+                      type: string
+                      example: "john.doe"
+                      description: Username at time of event
+                    ip_address:
+                      type: string
+                      example: "192.168.1.100"
+                      description: Source IP address
+                    user_agent:
+                      type: string
+                      example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                      description: Client user agent string
+                    endpoint:
+                      type: string
+                      example: "/api/v1/auth/login"
+                      description: API endpoint accessed
+                    method:
+                      type: string
+                      example: "POST"
+                      description: HTTP method (GET, POST, PUT, DELETE, etc.)
+                    status_code:
+                      type: integer
+                      example: 200
+                      description: HTTP response status code
+                    details:
+                      type: object
+                      example: {"login_method": "email", "two_factor_used": false}
+                      description: Event-specific metadata and context (JSON object)
+                    timestamp:
+                      type: string
+                      format: date-time
+                      example: "2024-03-15T14:30:00Z"
+                      description: Event timestamp in ISO 8601 format (UTC)
+      401:
+        description: Unauthorized (missing or invalid JWT token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Missing or invalid token"
+      403:
+        description: Forbidden (non-admin user attempting to access another user's log)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "You do not have permission to view this audit log"
+      404:
+        description: Audit log entry not found
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Audit log 9999 not found"
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Failed to retrieve audit log"
     """
     try:
         # Get current user info
@@ -282,22 +627,128 @@ def get_audit_log(log_id: int):
 @cache.cached(timeout=300, query_string=True)
 def get_audit_stats():
     """
-    Get audit log statistics (admin only).
+    Get comprehensive audit log statistics and analytics (admin only).
+    ---
+    tags:
+      - Audit Logs
+    summary: Get audit statistics
+    description: |
+      Retrieves aggregate statistics and analytics from audit logs, including event counts by type,
+      severity distribution, and top active users. Useful for security monitoring and compliance reporting.
 
-    Query Parameters:
-        - start_date: Start date for stats (ISO 8601)
-        - end_date: End date for stats (ISO 8601)
+      **Features:**
+      - Total event count
+      - Event distribution by type (login, logout, password_change, etc.)
+      - Severity breakdown (info, warning, critical)
+      - Top 10 users by event count
+      - Date range filtering
+      - Cached for 5 minutes (performance optimization)
 
-    Returns:
-        200: Audit statistics
-        403: Insufficient permissions
+      **Use Cases:**
+      - Security dashboard metrics
+      - Compliance reporting (SOC 2, HIPAA, GDPR)
+      - User activity analysis
+      - Threat detection (unusual activity spikes)
+      - Capacity planning (system usage trends)
+      - Executive summaries and KPIs
 
-    Example:
-        $ curl -X GET "http://localhost:5000/api/v1/audit/stats" \\
-          -H "Authorization: Bearer <access_token>"
+      **Authorization:**
+      Requires admin role (non-admins receive 403 Forbidden).
 
-    Security:
-        - Admin only
+      **Performance:**
+      Results are cached for 5 minutes. For real-time stats, cache can be invalidated
+      or wait for cache expiration.
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: start_date
+        type: string
+        format: date-time
+        required: false
+        description: Filter events after this timestamp (ISO 8601 format)
+        example: "2024-01-01T00:00:00Z"
+      - in: query
+        name: end_date
+        type: string
+        format: date-time
+        required: false
+        description: Filter events before this timestamp (ISO 8601 format)
+        example: "2024-12-31T23:59:59Z"
+    responses:
+      200:
+        description: Audit statistics retrieved successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "Audit statistics retrieved successfully"
+            data:
+              type: object
+              properties:
+                total_events:
+                  type: integer
+                  example: 15420
+                  description: Total number of audit events in the specified period
+                events_by_type:
+                  type: object
+                  example: {"login": 5200, "logout": 4800, "password_change": 150, "user_created": 42}
+                  description: Event count grouped by event type
+                events_by_severity:
+                  type: object
+                  example: {"info": 14500, "warning": 850, "critical": 70}
+                  description: Event count grouped by severity level
+                top_users:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      username:
+                        type: string
+                        example: "john.doe"
+                        description: Username
+                      event_count:
+                        type: integer
+                        example: 450
+                        description: Number of events triggered by this user
+                  description: Top 10 most active users by event count
+      401:
+        description: Unauthorized (missing or invalid JWT token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Missing or invalid token"
+      403:
+        description: Forbidden (requires admin role)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Admin role required"
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: "Failed to retrieve audit statistics"
     """
     try:
         from sqlalchemy import func
