@@ -301,6 +301,63 @@ def create_app(config_overrides: Optional[dict[str, Any]] = None) -> Flask:
         if not settings.is_testing():
             app.logger.warning(f"Dashboard integration failed: {str(e)}")
 
+    # =========================================================================
+    # Swagger UI Integration
+    # =========================================================================
+    # Initialize Swagger UI for API documentation
+    # Accessible at /apidocs/ in development and staging environments
+    if settings.ENVIRONMENT in ['development', 'staging']:
+        try:
+            from flasgger import Swagger
+
+            swagger_config = {
+                "headers": [],
+                "specs": [
+                    {
+                        "endpoint": "apispec",
+                        "route": "/apispec.json",
+                        "rule_filter": lambda rule: True,
+                        "model_filter": lambda tag: True,
+                    }
+                ],
+                "static_url_path": "/flasgger_static",
+                "swagger_ui": True,
+                "specs_route": "/apidocs/",
+            }
+
+            swagger_template = {
+                "swagger": "2.0",
+                "info": {
+                    "title": "Privasee BI SaaS API",
+                    "description": "RESTful API for Business Intelligence SaaS platform",
+                    "contact": {
+                        "name": "Privasee Team",
+                        "email": "support@privasee.com"
+                    },
+                    "version": "1.0.0"
+                },
+                "host": f"localhost:5000" if settings.ENVIRONMENT == 'development' else "api.privasee.com",
+                "basePath": "/api/v1",
+                "schemes": ["http"] if settings.ENVIRONMENT == 'development' else ["https"],
+                "securityDefinitions": {
+                    "Bearer": {
+                        "type": "apiKey",
+                        "name": "Authorization",
+                        "in": "header",
+                        "description": "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'"
+                    }
+                },
+                "security": [{"Bearer": []}]
+            }
+
+            Swagger(app, config=swagger_config, template=swagger_template)
+            if not settings.is_testing():
+                app.logger.info("Swagger UI initialized successfully at /apidocs/")
+        except Exception as e:
+            # Swagger is optional in development, log warning but don't fail
+            if not settings.is_testing():
+                app.logger.warning(f"Swagger UI initialization failed: {str(e)}")
+
     # Log successful application creation
     if not settings.is_testing():
         app.logger.info(f"Application created successfully. Environment: {settings.ENVIRONMENT}")
