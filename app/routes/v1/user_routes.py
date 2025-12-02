@@ -50,37 +50,165 @@ user_service = UserService()
 @require_analyst_or_admin()
 def list_users():
     """
-    List all users with pagination, filtering, sorting, and field selection.
-
-    Query Parameters:
-        Pagination:
-            - page: Page number (default: 1)
-            - per_page: Items per page (default: 20, max: 100)
-
-        Filtering:
-            - role: Filter by role (admin, analyst, viewer)
-            - is_active: Filter by active status (true/false)
-            - created_at__gte: Filter by creation date (greater than or equal)
-            - created_at__lte: Filter by creation date (less than or equal)
-
-        Search:
-            - search: Search in username and email fields
-
-        Sorting:
-            - sort: Sort fields (e.g., "created_at", "-username")
-                   Prefix with - for descending order
-                   Multiple fields: "role,-created_at"
-
-        Field Selection:
-            - fields: Specific fields to include (e.g., "id,username,email")
-            - exclude: Fields to exclude (e.g., "password_hash")
-
-    Returns:
-        200: List of users with pagination metadata
-
-    Example:
-        $ curl -X GET "http://localhost:5000/api/v1/users?page=1&per_page=20&role=admin&sort=-created_at&fields=id,username,email" \\
-          -H "Authorization: Bearer <access_token>"
+    List all users with advanced filtering and pagination.
+    ---
+    tags:
+      - Users
+    summary: List users
+    description: |
+      Retrieve a paginated list of users with support for filtering, searching, sorting, and field selection.
+      Requires analyst or admin role.
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: page
+        type: integer
+        default: 1
+        description: Page number (starts at 1)
+        example: 1
+      - in: query
+        name: per_page
+        type: integer
+        default: 20
+        description: Items per page (max 100)
+        example: 20
+      - in: query
+        name: role
+        type: string
+        enum: [admin, analyst, viewer]
+        description: Filter by user role
+        example: analyst
+      - in: query
+        name: is_active
+        type: boolean
+        description: Filter by active status
+        example: true
+      - in: query
+        name: search
+        type: string
+        description: Search in username and email fields
+        example: john
+      - in: query
+        name: sort
+        type: string
+        description: Sort fields (prefix with - for descending). Multiple fields separated by comma.
+        example: "-created_at,username"
+      - in: query
+        name: fields
+        type: string
+        description: Specific fields to include (comma-separated)
+        example: "id,username,email,role"
+      - in: query
+        name: created_at__gte
+        type: string
+        format: date-time
+        description: Filter users created after this date
+        example: "2024-01-01T00:00:00Z"
+      - in: query
+        name: created_at__lte
+        type: string
+        format: date-time
+        description: Filter users created before this date
+        example: "2024-12-31T23:59:59Z"
+    responses:
+      200:
+        description: Users retrieved successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Users retrieved successfully
+            data:
+              type: object
+              properties:
+                users:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      username:
+                        type: string
+                        example: johndoe
+                      email:
+                        type: string
+                        example: john@example.com
+                      role:
+                        type: string
+                        enum: [admin, analyst, viewer]
+                        example: analyst
+                      is_active:
+                        type: boolean
+                        example: true
+                      created_at:
+                        type: string
+                        format: date-time
+                        example: "2024-01-15T10:30:00Z"
+                      last_login:
+                        type: string
+                        format: date-time
+                        example: "2024-12-01T14:20:00Z"
+            pagination:
+              type: object
+              properties:
+                page:
+                  type: integer
+                  example: 1
+                per_page:
+                  type: integer
+                  example: 20
+                total_items:
+                  type: integer
+                  example: 150
+                total_pages:
+                  type: integer
+                  example: 8
+                has_next:
+                  type: boolean
+                  example: true
+                has_prev:
+                  type: boolean
+                  example: false
+      401:
+        description: Unauthorized (missing or invalid JWT token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Missing or invalid token
+      403:
+        description: Forbidden (insufficient permissions - requires analyst or admin role)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Insufficient permissions
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: An unexpected error occurred
     """
     try:
         # Parse pagination parameters
@@ -164,22 +292,115 @@ def list_users():
 @jwt_required_custom()
 def get_user(user_id: int):
     """
-    Get user by ID.
+    Get user profile by ID.
+    ---
+    tags:
+      - Users
+    summary: Get user by ID
+    description: |
+      Retrieves detailed information about a specific user by their ID.
 
-    Users can view their own profile.
-    Admins and analysts can view any user.
+      **Authorization Rules:**
+      - Any authenticated user can view their own profile
+      - Admin and analyst roles can view any user's profile
+      - Viewer role can only view their own profile
 
-    Path Parameters:
-        user_id: User ID
-
-    Returns:
-        200: User profile data
-        403: Insufficient permissions
-        404: User not found
-
-    Example:
-        $ curl -X GET http://localhost:5000/api/v1/users/1 \\
-          -H "Authorization: Bearer <access_token>"
+      Returns complete user information including account status, role, and activity timestamps.
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+        description: Unique user identifier
+        example: 1
+    responses:
+      200:
+        description: User retrieved successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: User retrieved successfully
+            data:
+              type: object
+              properties:
+                user:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    username:
+                      type: string
+                      example: johndoe
+                    email:
+                      type: string
+                      example: john@example.com
+                    role:
+                      type: string
+                      enum: [admin, analyst, viewer]
+                      example: analyst
+                    is_active:
+                      type: boolean
+                      example: true
+                    created_at:
+                      type: string
+                      format: date-time
+                      example: "2024-01-15T10:30:00Z"
+                    last_login:
+                      type: string
+                      format: date-time
+                      example: "2024-12-01T14:20:00Z"
+      401:
+        description: Unauthorized (missing or invalid token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Missing or invalid token
+      403:
+        description: Forbidden (insufficient permissions to view this user)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: You can only view your own profile
+      404:
+        description: User not found
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: User not found
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Failed to retrieve user
     """
     try:
         current_user_id = get_current_user_id()
@@ -221,33 +442,158 @@ def get_user(user_id: int):
 @jwt_required_custom()
 def update_user(user_id: int):
     """
-    Update user profile.
+    Update user profile with role-based permissions.
+    ---
+    tags:
+      - Users
+    summary: Update user
+    description: |
+      Updates user profile information with different permissions based on role.
 
-    Users can update their own profile (username, email).
-    Admins can update any user (including role and is_active).
+      **Authorization Rules:**
+      - **Regular users** can update their own username and email only
+      - **Admins** can update any user including role and is_active status
+      - **Analysts** cannot modify other users
 
-    Path Parameters:
-        user_id: User ID
+      **Updatable Fields:**
+      - username (all authenticated users for own profile)
+      - email (all authenticated users for own profile)
+      - role (admin only)
+      - is_active (admin only)
 
-    Request Body:
-        {
-            "username": "newusername",  // optional
-            "email": "newemail@example.com",  // optional
-            "role": "admin",  // optional, admin only
-            "is_active": true  // optional, admin only
-        }
-
-    Returns:
-        200: Updated user data
-        400: Validation error
-        403: Insufficient permissions
-        404: User not found
-
-    Example:
-        $ curl -X PUT http://localhost:5000/api/v1/users/1 \\
-          -H "Authorization: Bearer <access_token>" \\
-          -H "Content-Type: application/json" \\
-          -d '{"username":"newname"}'
+      All fields are optional. Only provided fields will be updated.
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+        description: User ID to update
+        example: 1
+      - in: body
+        name: body
+        required: true
+        description: User update data (all fields optional)
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+              minLength: 3
+              maxLength: 50
+              description: New username (unique)
+              example: johndoe_updated
+            email:
+              type: string
+              format: email
+              description: New email address (unique)
+              example: john.updated@example.com
+            role:
+              type: string
+              enum: [admin, analyst, viewer]
+              description: New role (admin only)
+              example: analyst
+            is_active:
+              type: boolean
+              description: Account active status (admin only)
+              example: true
+    responses:
+      200:
+        description: User updated successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: User updated successfully
+            data:
+              type: object
+              properties:
+                user:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    username:
+                      type: string
+                      example: johndoe_updated
+                    email:
+                      type: string
+                      example: john.updated@example.com
+                    role:
+                      type: string
+                      example: analyst
+                    is_active:
+                      type: boolean
+                      example: true
+                    created_at:
+                      type: string
+                      format: date-time
+                    last_login:
+                      type: string
+                      format: date-time
+      400:
+        description: Validation error (invalid data, duplicate username/email)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Validation error
+            details:
+              type: object
+      401:
+        description: Unauthorized (missing or invalid token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Missing or invalid token
+      403:
+        description: Forbidden (insufficient permissions to update this user or field)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Insufficient permissions to update this field
+      404:
+        description: User not found
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: User not found
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Failed to update user
     """
     try:
         # Parse request data
@@ -304,23 +650,122 @@ def update_user(user_id: int):
 @require_admin()
 def deactivate_user(user_id: int):
     """
-    Deactivate user account (soft delete).
+    Deactivate user account (soft delete) - Admin only.
+    ---
+    tags:
+      - Users
+    summary: Deactivate user
+    description: |
+      Soft-deletes a user account by setting is_active to false. This is a reversible operation
+      that preserves all user data while preventing authentication.
 
-    Only admins can deactivate users.
-    Users cannot deactivate themselves.
+      **Security Features:**
+      - Admin role required
+      - Users cannot deactivate themselves (safety measure)
+      - All user data is preserved (no hard delete)
+      - Can be reversed with POST /users/{id}/activate
+      - Action is logged for audit trail
 
-    Path Parameters:
-        user_id: User ID
+      **Effects of Deactivation:**
+      - User cannot log in
+      - Existing tokens are not immediately invalidated
+      - User data remains in database
+      - Can be reactivated by admins
 
-    Returns:
-        200: User deactivated successfully
-        400: Validation error
-        403: Insufficient permissions
-        404: User not found
-
-    Example:
-        $ curl -X DELETE http://localhost:5000/api/v1/users/5 \\
-          -H "Authorization: Bearer <access_token>"
+      **Use Cases:**
+      - Employee offboarding
+      - Account suspension
+      - Security incidents
+      - Temporary access removal
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+        description: User ID to deactivate
+        example: 5
+    responses:
+      200:
+        description: User deactivated successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: User deactivated successfully
+            data:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                  example: 5
+                is_active:
+                  type: boolean
+                  example: false
+                deactivated_at:
+                  type: string
+                  format: date-time
+                  example: "2024-12-01T15:30:00Z"
+      400:
+        description: Validation error (e.g., trying to deactivate yourself)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: You cannot deactivate your own account
+      401:
+        description: Unauthorized (missing or invalid token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Missing or invalid token
+      403:
+        description: Forbidden (non-admin user)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Admin role required
+      404:
+        description: User not found
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: User not found
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Failed to deactivate user
     """
     try:
         current_user_id = get_current_user_id()
@@ -366,21 +811,110 @@ def deactivate_user(user_id: int):
 @require_admin()
 def activate_user(user_id: int):
     """
-    Activate a deactivated user account.
+    Reactivate a deactivated user account - Admin only.
+    ---
+    tags:
+      - Users
+    summary: Activate user
+    description: |
+      Reactivates a previously deactivated user account by setting is_active to true.
+      This reverses the soft delete operation and restores full access.
 
-    Only admins can activate users.
+      **Security Features:**
+      - Admin role required
+      - Action is logged for audit trail
+      - User can immediately log in after activation
+      - All previous user data is preserved
 
-    Path Parameters:
-        user_id: User ID
+      **Effects of Activation:**
+      - User can log in again
+      - All permissions restored
+      - Access to protected resources enabled
+      - User appears in active user lists
 
-    Returns:
-        200: User activated successfully
-        403: Insufficient permissions
-        404: User not found
-
-    Example:
-        $ curl -X POST http://localhost:5000/api/v1/users/5/activate \\
-          -H "Authorization: Bearer <access_token>"
+      **Use Cases:**
+      - Employee rehiring
+      - Account restoration after suspension
+      - Reversing accidental deactivation
+      - Reinstating user access
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+        description: User ID to activate
+        example: 5
+    responses:
+      200:
+        description: User activated successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: User activated successfully
+            data:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                  example: 5
+                is_active:
+                  type: boolean
+                  example: true
+                activated_at:
+                  type: string
+                  format: date-time
+                  example: "2024-12-01T16:00:00Z"
+      401:
+        description: Unauthorized (missing or invalid token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Missing or invalid token
+      403:
+        description: Forbidden (non-admin user)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Admin role required
+      404:
+        description: User not found
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: User not found
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Failed to activate user
     """
     try:
         current_role = get_current_user_role()
