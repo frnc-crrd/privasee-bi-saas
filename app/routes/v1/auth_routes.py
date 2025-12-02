@@ -49,25 +49,123 @@ auth_service = AuthService()
 @require_turnstile_json()  # Bot protection
 def register():
     """
-    Register a new user.
-
-    Request Body:
-        {
-            "username": "johndoe",
-            "email": "john@example.com",
-            "password": "SecurePass123!",
-            "role": "viewer"  // optional, defaults to "viewer"
-        }
-
-    Returns:
-        201: User created with tokens
-        400: Validation error
-        409: User already exists
-
-    Example:
-        $ curl -X POST http://localhost:5000/api/v1/auth/register \\
-          -H "Content-Type: application/json" \\
-          -d '{"username":"johndoe","email":"john@example.com","password":"SecurePass123!"}'
+    Register a new user account.
+    ---
+    tags:
+      - Authentication
+    summary: Register a new user
+    description: |
+      Creates a new user account with email and password authentication.
+      Rate limited to 10 registrations per hour per IP address.
+      Requires bot protection via Cloudflare Turnstile (if enabled).
+    parameters:
+      - in: body
+        name: body
+        required: true
+        description: User registration data
+        schema:
+          type: object
+          required:
+            - username
+            - email
+            - password
+          properties:
+            username:
+              type: string
+              example: johndoe
+              description: Unique username (3-50 characters)
+            email:
+              type: string
+              format: email
+              example: john@example.com
+              description: Valid email address
+            password:
+              type: string
+              format: password
+              example: SecurePass123!
+              description: Password (min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char)
+            role:
+              type: string
+              enum: [viewer, analyst, admin]
+              default: viewer
+              description: User role (optional, defaults to viewer)
+    responses:
+      201:
+        description: User registered successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: User registered successfully
+            data:
+              type: object
+              properties:
+                user:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    username:
+                      type: string
+                      example: johndoe
+                    email:
+                      type: string
+                      example: john@example.com
+                    role:
+                      type: string
+                      example: viewer
+                    is_active:
+                      type: boolean
+                      example: true
+                    created_at:
+                      type: string
+                      format: date-time
+                access_token:
+                  type: string
+                  description: JWT access token (valid for 1 hour)
+                refresh_token:
+                  type: string
+                  description: JWT refresh token (valid for 7 days)
+      400:
+        description: Validation error (invalid input data)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Validation error
+            errors:
+              type: object
+      409:
+        description: User already exists (email or username conflict)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: User already exists
+      429:
+        description: Rate limit exceeded (too many registration attempts)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Rate limit exceeded
     """
     try:
         # Parse and validate request data
@@ -127,23 +225,111 @@ def register():
 @require_turnstile_json()  # Bot protection
 def login():
     """
-    Authenticate user and return tokens.
-
-    Request Body:
-        {
-            "email": "john@example.com",
-            "password": "SecurePass123!"
-        }
-
-    Returns:
-        200: Login successful with tokens
-        401: Invalid credentials
-        400: Validation error
-
-    Example:
-        $ curl -X POST http://localhost:5000/api/v1/auth/login \\
-          -H "Content-Type: application/json" \\
-          -d '{"email":"john@example.com","password":"SecurePass123!"}'
+    Authenticate user and return JWT tokens.
+    ---
+    tags:
+      - Authentication
+    summary: User login
+    description: |
+      Authenticates a user with email and password, returns access and refresh tokens.
+      Rate limited to 5 login attempts per minute per IP for brute-force protection.
+      Requires bot protection via Cloudflare Turnstile (if enabled).
+    parameters:
+      - in: body
+        name: body
+        required: true
+        description: Login credentials
+        schema:
+          type: object
+          required:
+            - email
+            - password
+          properties:
+            email:
+              type: string
+              format: email
+              example: john@example.com
+              description: User email address
+            password:
+              type: string
+              format: password
+              example: SecurePass123!
+              description: User password
+    responses:
+      200:
+        description: Login successful
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Login successful
+            data:
+              type: object
+              properties:
+                user:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    username:
+                      type: string
+                      example: johndoe
+                    email:
+                      type: string
+                      example: john@example.com
+                    role:
+                      type: string
+                      example: viewer
+                    is_active:
+                      type: boolean
+                      example: true
+                    last_login:
+                      type: string
+                      format: date-time
+                access_token:
+                  type: string
+                  description: JWT access token (valid for 1 hour)
+                refresh_token:
+                  type: string
+                  description: JWT refresh token (valid for 7 days)
+      400:
+        description: Validation error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Validation error
+      401:
+        description: Invalid credentials or account disabled
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Invalid credentials
+      429:
+        description: Rate limit exceeded (too many login attempts)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Rate limit exceeded
     """
     try:
         # Parse and validate request data
@@ -200,18 +386,72 @@ def login():
 @verify_refresh_token()
 def refresh():
     """
-    Refresh access token using refresh token.
-
-    Headers:
-        Authorization: Bearer <refresh_token>
-
-    Returns:
-        200: New access token
-        401: Invalid or expired refresh token
-
-    Example:
-        $ curl -X POST http://localhost:5000/api/v1/auth/refresh \\
-          -H "Authorization: Bearer <refresh_token>"
+    Refresh access token using a valid refresh token.
+    ---
+    tags:
+      - Authentication
+    summary: Refresh access token
+    description: |
+      Generates a new access token using a valid refresh token.
+      The refresh token has a longer lifetime (7 days) compared to access tokens (1 hour).
+      Use this endpoint when the access token expires to obtain a new one without re-authentication.
+    security:
+      - Bearer: []
+    parameters:
+      - in: header
+        name: Authorization
+        type: string
+        required: true
+        description: Bearer token with refresh token (not access token)
+        example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    responses:
+      200:
+        description: Token refreshed successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Token refreshed successfully
+            data:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  description: New access token (valid for 1 hour)
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                token_type:
+                  type: string
+                  example: Bearer
+                expires_in:
+                  type: integer
+                  description: Access token lifetime in seconds
+                  example: 3600
+      401:
+        description: Invalid or expired refresh token
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Invalid or expired refresh token
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Token refresh failed
     """
     try:
         # Get refresh token claims
@@ -244,17 +484,60 @@ def refresh():
 @jwt_required_custom()
 def logout():
     """
-    Logout user by blacklisting current token.
+    Logout user and invalidate current access token.
+    ---
+    tags:
+      - Authentication
+    summary: Logout user
+    description: |
+      Logs out the authenticated user by blacklisting their current access token.
+      The token will be invalidated immediately and cannot be used for future requests.
+      This ensures secure session termination.
 
-    Headers:
-        Authorization: Bearer <access_token>
-
-    Returns:
-        200: Logout successful
-
-    Example:
-        $ curl -X POST http://localhost:5000/api/v1/auth/logout \\
-          -H "Authorization: Bearer <access_token>"
+      Note: Refresh tokens are not automatically invalidated. Users should discard them client-side.
+    security:
+      - Bearer: []
+    parameters:
+      - in: header
+        name: Authorization
+        type: string
+        required: true
+        description: Bearer token with access token (not refresh token)
+        example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    responses:
+      200:
+        description: Logout successful, token blacklisted
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Logout successful
+      401:
+        description: Unauthorized (missing or invalid token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Missing or invalid token
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Logout failed
     """
     try:
         # Get token claims
@@ -293,27 +576,102 @@ def logout():
 @jwt_required_custom()
 def change_password():
     """
-    Change user password.
+    Change authenticated user's password.
+    ---
+    tags:
+      - Authentication
+    summary: Change password
+    description: |
+      Allows an authenticated user to change their password by providing the current password
+      and a new password. The new password must meet security requirements:
+      - Minimum 8 characters
+      - At least one uppercase letter
+      - At least one lowercase letter
+      - At least one digit
+      - At least one special character
 
-    Headers:
-        Authorization: Bearer <access_token>
-
-    Request Body:
-        {
-            "old_password": "OldPass123!",
-            "new_password": "NewPass456!"
-        }
-
-    Returns:
-        200: Password changed successfully
-        401: Invalid old password
-        400: Validation error
-
-    Example:
-        $ curl -X POST http://localhost:5000/api/v1/auth/password/change \\
-          -H "Authorization: Bearer <access_token>" \\
-          -H "Content-Type: application/json" \\
-          -d '{"old_password":"OldPass123!","new_password":"NewPass456!"}'
+      This action is logged for security auditing purposes.
+    security:
+      - Bearer: []
+    parameters:
+      - in: header
+        name: Authorization
+        type: string
+        required: true
+        description: Bearer token with access token
+        example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      - in: body
+        name: body
+        required: true
+        description: Current and new password
+        schema:
+          type: object
+          required:
+            - old_password
+            - new_password
+          properties:
+            old_password:
+              type: string
+              format: password
+              description: Current password
+              example: "OldPass123!"
+            new_password:
+              type: string
+              format: password
+              description: New password (must meet security requirements)
+              example: "NewSecurePass456!"
+    responses:
+      200:
+        description: Password changed successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Password changed successfully
+      400:
+        description: Validation error (password requirements not met)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Validation error
+            details:
+              type: object
+              properties:
+                validation_errors:
+                  type: array
+                  items:
+                    type: object
+      401:
+        description: Unauthorized (invalid old password or missing token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Invalid old password
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Password change failed
     """
     try:
         # Parse and validate request data
@@ -373,17 +731,85 @@ def change_password():
 @jwt_required_custom()
 def get_current_user_info():
     """
-    Get current authenticated user information.
+    Get current authenticated user's profile information.
+    ---
+    tags:
+      - Authentication
+    summary: Get current user profile
+    description: |
+      Retrieves the profile information of the currently authenticated user based on the JWT token.
+      Returns user details including ID, username, email, role, and account status.
 
-    Headers:
-        Authorization: Bearer <access_token>
-
-    Returns:
-        200: User information
-
-    Example:
-        $ curl -X GET http://localhost:5000/api/v1/auth/me \\
-          -H "Authorization: Bearer <access_token>"
+      This endpoint is useful for:
+      - Displaying user profile in the UI
+      - Verifying current authentication status
+      - Retrieving user permissions (role)
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: User information retrieved successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: User information retrieved successfully
+            data:
+              type: object
+              properties:
+                user:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    username:
+                      type: string
+                      example: johndoe
+                    email:
+                      type: string
+                      example: john@example.com
+                    role:
+                      type: string
+                      enum: [admin, analyst, viewer]
+                      example: analyst
+                    is_active:
+                      type: boolean
+                      example: true
+                    created_at:
+                      type: string
+                      format: date-time
+                      example: "2024-01-15T10:30:00Z"
+                    last_login:
+                      type: string
+                      format: date-time
+                      example: "2024-12-01T14:20:00Z"
+      401:
+        description: Unauthorized (missing or invalid token)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Missing or invalid token
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Failed to retrieve user information
     """
     try:
         from app.middleware.auth_middleware import get_current_user
@@ -417,26 +843,96 @@ def get_current_user_info():
 @limiter.limit("3/hour")
 @require_turnstile_json()  # Bot protection
 def request_password_reset():
-    """Request password reset email with secure token.
+    """
+    Request password reset email with secure token.
+    ---
+    tags:
+      - Authentication
+    summary: Request password reset
+    description: |
+      Initiates a password reset process by sending a secure reset link to the user's email address.
 
-    Rate limited to 3 requests per hour per IP to prevent abuse.
+      **Security Features:**
+      - Always returns success response to prevent user enumeration attacks
+      - Reset token expires after 1 hour
+      - Rate limited to 3 requests per hour per IP address
+      - Requires bot protection via Cloudflare Turnstile (if enabled)
+      - Token is single-use and invalidated after successful password reset
 
-    Request Body:
-        {
-            "email": "user@example.com"
-        }
-
-    Returns:
-        200: Password reset email sent successfully
-        400: Validation error (invalid email format)
-        404: Email not found (security: returns 200 to prevent user enumeration)
-        429: Too many reset requests
-        500: Server error
-
-    Security:
-        - Always returns success to prevent user enumeration attacks
-        - Token expires after 1 hour
-        - Rate limited to prevent email flooding
+      **Note:** Even if the email doesn't exist in the system, a success response is returned
+      to prevent attackers from discovering valid email addresses.
+    parameters:
+      - in: body
+        name: body
+        required: true
+        description: User email address
+        schema:
+          type: object
+          required:
+            - email
+          properties:
+            email:
+              type: string
+              format: email
+              description: Registered email address
+              example: "user@example.com"
+    responses:
+      200:
+        description: Password reset email sent (or email not found - security response)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: If the email exists, a password reset link has been sent
+            data:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: If the email exists, a password reset link has been sent
+                expires_in:
+                  type: integer
+                  description: Token expiration time in seconds
+                  example: 3600
+      400:
+        description: Validation error (invalid email format)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Validation error
+            details:
+              type: object
+      429:
+        description: Rate limit exceeded (too many reset requests)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Rate limit exceeded. Please try again later.
+      500:
+        description: Server error (email service unavailable)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Failed to send password reset email
     """
     try:
         # Validate request data
@@ -512,26 +1008,118 @@ def request_password_reset():
 
 @auth_bp.route('/password/reset-confirm', methods=['POST'])
 def confirm_password_reset():
-    """Complete password reset using token from email.
+    """
+    Complete password reset using token from email.
+    ---
+    tags:
+      - Authentication
+    summary: Confirm password reset
+    description: |
+      Completes the password reset process by validating the reset token received via email
+      and setting a new password for the user.
 
-    Request Body:
-        {
-            "token": "eyJhbGciOiJIUzI1NiIs...",
-            "new_password": "NewP@ssw0rd123"
-        }
+      **Security Features:**
+      - Validates token signature and expiration (1-hour lifetime)
+      - Enforces strong password requirements
+      - Token is single-use (expires immediately after use)
+      - All password resets are logged for security auditing
+      - Verifies token type to prevent token confusion attacks
 
-    Returns:
-        200: Password reset successful
-        400: Validation error (weak password, invalid token format)
-        401: Token expired or invalid
-        404: User not found
-        500: Server error
-
-    Security:
-        - Validates token signature and expiration
-        - Enforces password strength requirements
-        - Invalidates token after use (via JWT expiry)
-        - Logs all password changes for auditing
+      **Password Requirements:**
+      - Minimum 8 characters
+      - At least one uppercase letter
+      - At least one lowercase letter
+      - At least one digit
+      - At least one special character
+    parameters:
+      - in: body
+        name: body
+        required: true
+        description: Reset token and new password
+        schema:
+          type: object
+          required:
+            - token
+            - new_password
+          properties:
+            token:
+              type: string
+              description: Password reset token received via email
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwidHlwZSI6InBhc3N3b3JkX3Jlc2V0IiwiZXhwIjoxNzMzMDk4ODAwfQ.signature"
+            new_password:
+              type: string
+              format: password
+              description: New password (must meet security requirements)
+              example: "NewSecureP@ss123!"
+    responses:
+      200:
+        description: Password reset successful
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Password has been reset successfully
+            data:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: You can now log in with your new password
+      400:
+        description: Validation error (weak password or invalid request format)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Validation error
+            details:
+              type: object
+              properties:
+                validation_errors:
+                  type: array
+                  items:
+                    type: object
+      401:
+        description: Token expired, invalid, or wrong token type
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Invalid or expired password reset token
+      404:
+        description: User not found (email from token doesn't exist)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: User not found
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            message:
+              type: string
+              example: Password reset failed
     """
     try:
         # Validate request data
